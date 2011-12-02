@@ -1,0 +1,52 @@
+                          popHealth Windows Installer
+
+===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
+
+This repository contains the files and scripts necessary to build a one-click
+installer of popHealth for Windows users.  This is not the place to go if you
+just want to install popHealth on a Windows platform.  However, is you are a
+developer, working to enhance or update the installer for the latest version
+of popHealth, than you're in the right place.
+
+===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
+
+
+=====================
++  Prerequisites:
+=====================
+
+* NSIS (Nullsoft Scriptable Installation System)
+
+  The windows installer is built using the Nullsoft Scriptable Installation
+  System (NSIS) tool.  Specifically, it was designed with version 2.46 of the
+  tool.
+
+  NSIS Project URL: http://nsis.sourceforge.net/
+  NSIS Documentation: http://nsis.sourceforge.net/Docs
+  Downloads: http://nsis.sourceforge.net/Download
+
+* OLE-COM Object Viewer
+
+  While not explicitly necessary to build the installer, some aspects of
+  installing something on windows (i.e. adding a scheduled task) require
+  invoking Windows components via an Object Linking & Embedding (OLE) or
+  Common Object Model (COM) interface.  Doing this from an NSIS install script
+  requires determining the ordinal number of the desired COM interface
+  function.  The OLE-COM Object Viewer allows the COM interfaces installed on
+  the system to be browsed to determine these numbers.  It is included with
+  Microsoft's Visual Studio development environment.  I believe that it is
+  also part of the Windows 2000 Resource Kit.
+
+
+=====================
++  Building
+=====================
+
+Building the installer is quite simple.  After installing NSIS, make sure the
+NSIS install directory is included in the PATH environment variable.  From the
+directory where this file resides, simply execute the following command:
+
+  makensis popHealth.nsi
+
+If all goes well, this will create an executable called popHealth.exe which is
+the one-click installer for the popHealth project.
