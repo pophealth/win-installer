@@ -25,7 +25,15 @@ of popHealth, than you're in the right place.
   NSIS Documentation: http://nsis.sourceforge.net/Docs
   Downloads: http://nsis.sourceforge.net/Download
 
-* OLE-COM Object Viewer
+* unzip command
+
+  The batch file that prepares this directory prior to running the installer
+  uses the unzip command.  If you are using the Windows git client included in
+  this directory, it includes the necessary command.  Simply add the directory
+  <GIT HOME>\bin to your PATH and you'll be set.  <GIT HOME> refers to the
+  directory where git is installed (C:\Program Files\Git by default).
+
+* OLE-COM Object Viewer (optional)
 
   While not explicitly necessary to build the installer, some aspects of
   installing something on windows (i.e. adding a scheduled task) require
@@ -43,10 +51,17 @@ of popHealth, than you're in the right place.
 =====================
 
 Building the installer is quite simple.  After installing NSIS, make sure the
-NSIS install directory is included in the PATH environment variable.  From the
-directory where this file resides, simply execute the following command:
+NSIS install tool directory (C:\Program Files\NSIS by default) and the Git bin
+directory are included in the PATH environment variable.  From the directory
+where this file resides, simply execute the following commands:
 
+  preparefor [32 | 64]
   makensis popHealth.nsi
 
-If all goes well, this will create an executable called popHealth.exe which is
-the one-click installer for the popHealth project.
+The first command is a batch file that prepares the directory for either a 32
+or a 64 bit build of the installer.  If no option is specified, 32 bit is
+used as a default.
+
+If all goes well, this will create an executable called either
+popHealth.exe (32 bit) or popHealth-x86_64.exe (64 bit) which is the one-click
+installer for the popHealth project for the respective architecture.
