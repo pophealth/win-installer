@@ -25,7 +25,20 @@ SetCompressor /solid lzma
 Name "popHealth"
 
 ; The file to write
-OutFile "popHealth.exe"
+;OutFile "popHealth-i386.exe"
+!ifndef BUILDARCH
+  !define BUILDARCH 32
+!endif
+!if ${BUILDARCH} = 32
+OutFile "popHealth-i386.exe"
+!define jrubyinst "jruby_windowsjre_1_6_4.exe"
+!else
+OutFile "popHealth-x86_64.exe"
+!define jrubyinst "jruby_windows_x64_jre_1_6_4.exe"
+!endif
+
+!echo "BUILDARCH = ${BUILDARCH}"
+!echo "jrubyinst = ${jrubyinst}"
 
 ; The default installation directory
 ; TODO: change this to C:\projects for final version.
@@ -236,9 +249,9 @@ Section "Install JRuby" sec_jruby
 
   MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install JRuby.  You may accept the defaults on all the \
       dialogs and click Next.  Click Finish on the last one.' /SD IDOK IDCANCEL skipjruby
-    File "jruby_windowsjre_1_6_4.exe"
-    ExecWait '"$INSTDIR\depinstallers\jruby_windowsjre_1_6_4.exe"'
-    Delete "$INSTDIR\depinstallers\jruby_windowsjre_1_6_4.exe"
+    File "${jrubyinst}"
+    ExecWait '"$INSTDIR\depinstallers\${jrubyinst}"'
+    Delete "$INSTDIR\depinstallers\${jrubyinst}"
   skipjruby:
 SectionEnd
 
@@ -247,9 +260,9 @@ Section "Install MongoDB" sec_mongodb
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
 
-  SetOutPath "C:\mongodb-win32-i386-2.0.1"
+  SetOutPath "C:\mongodb-2.0.1"
 
-  File /r mongodb-win32-i386-2.0.1\*.*
+  File /r mongodb-2.0.1\*.*
 
   ; Create a data directory for mongodb
   SetOutPath c:\data\db
@@ -274,9 +287,9 @@ Section "Install Redis" sec_redis
   push "popHealth Redis Server"
   push "Run the redis server at startup."
   push "PT15S"
-  push "$redisdir\32bit\redis-server.exe"
+  push "$redisdir\${BUILDARCH}bit\redis-server.exe"
   push "redis.conf"
-  push "$redisdir\32bit"
+  push "$redisdir\${BUILDARCH}bit"
   Call CreateTask
   pop $0
   DetailPrint "Result of scheduling Redis Server task: $0"
@@ -591,11 +604,11 @@ FunctionEnd
 Function .onInit
   StrCpy $rubydir "C:\Ruby192"
   StrCpy $gitdir  "C:\Program Files\Git"
-  StrCpy $mongodir "C:\mongodb-win32-i386-2.0.1"
+  StrCpy $mongodir "C:\mongodb-2.0.1"
   StrCpy $redisdir "C:\redis-2.4.0"
 FunctionEnd
 Function un.onInit
-  StrCpy $mongodir "C:\mongodb-win32-i386-2.0.1"
+  StrCpy $mongodir "C:\mongodb-2.0.1"
   StrCpy $redisdir "C:\redis-2.4.0"
 FunctionEnd
 

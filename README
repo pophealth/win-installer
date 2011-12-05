@@ -56,12 +56,14 @@ directory are included in the PATH environment variable.  From the directory
 where this file resides, simply execute the following commands:
 
   preparefor [32 | 64]
-  makensis popHealth.nsi
+  makensis [/DBUILDARCH=[32 | 64]] popHealth.nsi
 
 The first command is a batch file that prepares the directory for either a 32
 or a 64 bit build of the installer.  If no option is specified, 32 bit is
-used as a default.
+used as a default.  The preparefor batch file will also run the makensis
+command with the appropriate BUILDARCH define.  If the makensis command is
+run separately without a /DBUILDARCH argument, then a 32 bit build is assumed.
 
 If all goes well, this will create an executable called either
-popHealth.exe (32 bit) or popHealth-x86_64.exe (64 bit) which is the one-click
-installer for the popHealth project for the respective architecture.
+popHealth-i386.exe (32 bit) or popHealth-x86_64.exe (64 bit) which is the
+one-click installer for the popHealth project for the respective architecture.

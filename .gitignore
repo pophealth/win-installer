@@ -1,3 +1,6 @@
 *~
 *.swp
-popHealth.exe
+popHealth-i386.exe
+popHealth-x86_64.exe
+mongodb-2.0.1
+redis-2.4.0
