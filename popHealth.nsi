@@ -1,8 +1,9 @@
 ; popHealth.nsi
 ;
-; This script will install the popHealth system (with all dependencies) and configure so that
-; the popHealth application is available after the next system boot.  It also sets up an uninstaller
-; so that the user can remove the application completely if desired.
+; This script will install the popHealth system (with all dependencies) and
+; configure so that the popHealth application is available after the next
+; system boot.  It also sets up an uninstaller so that the user can remove the
+; application completely if desired.
 
 ;--------------------------------
 
@@ -118,9 +119,18 @@ UnInstPage custom un.ProxySettingsPage
 
 !insertmacro MUI_LANGUAGE "English"
 
-;--------------------------------
+;=============================================================================
+; INSTALLER SECTIONS
+;
+; The order of the sections determines the order that they will be listed in
+; the Components page.
+;=============================================================================
 
-; The stuff to install
+;-----------------------------------------------------------------------------
+; Uninstaller
+;
+; Creates and registers an uninstaller for application removal.
+;-----------------------------------------------------------------------------
 Section "Create Uninstaller" sec_uninstall
 
   SectionIn RO
@@ -139,7 +149,12 @@ Section "Create Uninstaller" sec_uninstall
   
 SectionEnd
 
-; Optional section (can be disabled by the user)
+;-----------------------------------------------------------------------------
+; Start Menu Shortcuts
+;
+; Registers a Start Menu shortcut for the application uninstaller and another
+; to launch a web browser into the popHealth web application.
+;-----------------------------------------------------------------------------
 Section "Start Menu Shortcuts" sec_startmenu
 
   SectionIn 1 2 3
@@ -155,7 +170,13 @@ Section "Start Menu Shortcuts" sec_startmenu
   
 SectionEnd
 
-; Optional section - Install Git
+;-----------------------------------------------------------------------------
+; Git
+;
+; Runs the Git install program and waits for it to finish.
+; TODO: Need to record somehow whether we actually install this so that the
+;       uninstaller can remove it.
+;-----------------------------------------------------------------------------
 Section "Install Git" sec_git
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -172,13 +193,20 @@ Section "Install Git" sec_git
 
   ; We need a git install.  If we don't find git where we expect, ask user
   IfFileExists "$gitdir\cmd\git.cmd" gitdone 0
+    ; TODO: Need to prompt the user to tell us where git is installed.
     MessageBox MB_ICONEXCLAMATION|MB_OK "Git not found!"
   gitdone:
   Push "$gitdir\cmd"
   Call AddToPath
 SectionEnd
 
-; Optional section - Install Ruby
+;-----------------------------------------------------------------------------
+; Ruby
+;
+; Runs the Ruby install program and waits for it to finish.
+; TODO: Need to record somehow whether we actually install this so that the
+;       uninstaller can remove it.
+;-----------------------------------------------------------------------------
 Section "Install Ruby" sec_ruby
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -196,13 +224,18 @@ Section "Install Ruby" sec_ruby
 
   ; We need a ruby install.  If we don't find ruby where we expect, ask user
   IfFileExists "$rubydir\bin\ruby.exe" rubydone 0
+    ; TODO Need to prompt the user to tell us where ruby is installed.
     MessageBox MB_ICONEXCLAMATION|MB_OK "Ruby not found!"
   rubydone:
   Push "$rubydir\bin"
   Call AddToPath
 SectionEnd
 
-; Optional section - Install Bundler
+;-----------------------------------------------------------------------------
+; Bundler
+;
+; Installs the bundler gem for user later in the install.
+;-----------------------------------------------------------------------------
 Section "Install Bundler" sec_bundler
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -214,7 +247,14 @@ Section "Install Bundler" sec_bundler
     MessageBox MB_ICONEXCLAMATION|MB_OK "Failed to install the bundler gem."
 SectionEnd
 
-; Optional section - Install Ruby DevKit
+;-----------------------------------------------------------------------------
+; Ruby DevKit
+;
+; Unpacks the ruby development kit.  This component is required in order to
+; build native ruby gems on Windows.
+; TODO: If the required native gems are prebuilt and included in the installer
+;       than this component could be removed.
+;-----------------------------------------------------------------------------
 Section "Install Ruby DevKit" sec_rdevkit
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -249,7 +289,11 @@ Section "Install Ruby DevKit" sec_rdevkit
     ClearErrors
 SectionEnd
 
-; Optional section - Install JRuby
+;-----------------------------------------------------------------------------
+; JRuby
+;
+; Runs the JRuby install program and waits for it to finish.
+;-----------------------------------------------------------------------------
 Section "Install JRuby" sec_jruby
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -265,7 +309,14 @@ Section "Install JRuby" sec_jruby
   skipjruby:
 SectionEnd
 
-; Optional section - Install MongoDB
+;-----------------------------------------------------------------------------
+; MongoDB
+;
+; Installs and registers mongodb to runs as a native Windows service.  Since
+; this program is distributed as a zip file, it is unpackaged and included
+; directly in the popHealth installer. The service is also started so that we
+; can use MongoDB later in the installer.
+;-----------------------------------------------------------------------------
 Section "Install MongoDB" sec_mongodb
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -284,7 +335,14 @@ Section "Install MongoDB" sec_mongodb
   ExecWait 'net.exe start "Mongo DB"'
 SectionEnd
 
-; Optional section - Install Redis
+;-----------------------------------------------------------------------------
+; Redis
+;
+; Installs the redis server.  This program is distributed as a zip file, so
+; it is unpackage and included directly in the popHealth installer.  Once
+; installed, a scheduled task with a boot trigger is registered.  This will
+; result in the redis server being started every time the machine is rebooted.
+;-----------------------------------------------------------------------------
 Section "Install Redis" sec_redis
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -307,7 +365,14 @@ Section "Install Redis" sec_redis
   SetRebootFlag true
 SectionEnd
 
-; Required Section - Install popHealth Quality Measure Definitions
+;-----------------------------------------------------------------------------
+; popHealth Quality Measures
+;
+; This section clones the github repository.  This approach requires us to
+; install git on the system.
+; TODO: When building the installer, pull the repo from github as a tar or zip
+;       file and distribute that.
+;-----------------------------------------------------------------------------
 Section "popHealth Quality Measures" sec_qualitymeasures
 
   SectionIn RO
@@ -325,7 +390,16 @@ Section "popHealth Quality Measures" sec_qualitymeasures
   ExecWait 'cmd.exe /c "$rubydir\bin\bundle.bat install"'
 SectionEnd
 
-; Required Section - Install popHealth web application
+;-----------------------------------------------------------------------------
+; popHealth Web Application
+;
+; This section clones the github repository.  This approach requires us to
+; install git on the system. This also installs a scheduled task with a boot
+; trigger that will start a web server so that the application can be accessed
+; when the system is booted.
+; TODO: When building the installer, pull the repo from github as a tar or zip
+;       file and distribute that.
+;-----------------------------------------------------------------------------
 Section "popHealth Web Application" sec_popHealth
 
   SectionIn RO
@@ -359,7 +433,13 @@ Section "popHealth Web Application" sec_popHealth
   SetRebootFlag true
 SectionEnd
 
-; Optional Section - Install resque worker service
+;-----------------------------------------------------------------------------
+; Resque Workers
+;
+; This section installs a batch file that will start the resque workers and
+; schedules a task with a boot trigger so that the workers are always started
+; when the system boots up.
+;-----------------------------------------------------------------------------
 Section "Install resque workers" sec_resque
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -384,7 +464,12 @@ Section "Install resque workers" sec_resque
   SetRebootFlag true
 SectionEnd
 
-; Optional Section - Install test patient records
+;-----------------------------------------------------------------------------
+; Patient Records
+;
+; This section adds 500 random patient records to the mongo database so that
+; there is data to play around with as soon as the installer finishes.
+;-----------------------------------------------------------------------------
 Section "Install patient records" sec_samplepatients
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
@@ -438,9 +523,13 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients} $(DESC_sec_samplepatients)
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-;--------------------------------
-
-; Uninstaller
+;=============================================================================
+; UNINSTALLER SECTION
+;
+; This should undo everyting done by the installer.
+; TODO: Need to record exactly which components were installed so that we only
+;       uninstall those same components.
+;=============================================================================
 
 Section "Uninstall"
   
@@ -527,6 +616,10 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
 SectionEnd
+
+;=============================================================================
+; UTILITY FUNCTIONS
+;=============================================================================
 
 ;--------------------------------
 ; Functions for Custom pages
