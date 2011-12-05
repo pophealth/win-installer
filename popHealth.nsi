@@ -154,6 +154,7 @@ SectionEnd
 Section "Install Git" sec_git
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+  AddSize 54682                  ; additional size in kB above installer
 
   SetOutPath $INSTDIR\depinstallers ; temporary directory
 
@@ -176,6 +177,7 @@ SectionEnd
 Section "Install Ruby" sec_ruby
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+  AddSize 18534                  ; additional size in kB above installer
 
   SetOutPath $INSTDIR\depinstallers ; temporary directory
 
@@ -199,6 +201,7 @@ SectionEnd
 Section "Install Bundler" sec_bundler
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+  AddSize 3922                   ; additional size in kB above installer
 
   ClearErrors
   ExecWait '"$rubydir\bin\gem.bat" install bundler'
@@ -210,6 +213,7 @@ SectionEnd
 Section "Install Ruby DevKit" sec_rdevkit
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+  AddSize 145079                 ; additional size in kB above installer
 
   SetOutPath $INSTDIR\depinstallers ; temporary directory
   MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install the Ruby DevKit. Please accept all defaults \
@@ -244,6 +248,7 @@ SectionEnd
 Section "Install JRuby" sec_jruby
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+  AddSize 67531                  ; additional size in kB above installer
 
   SetOutPath $INSTDIR\depinstallers ; temporary directory
 
@@ -299,6 +304,7 @@ SectionEnd
 Section "popHealth Quality Measures" sec_qualitymeasures
 
   SectionIn RO
+  AddSize 5887        ; current size of cloned repo (in kB)
   
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
@@ -316,6 +322,7 @@ SectionEnd
 Section "popHealth Web Application" sec_popHealth
 
   SectionIn RO
+  AddSize 37802        ; current size of cloned repo (in kB)
 
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
