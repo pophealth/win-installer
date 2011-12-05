@@ -78,6 +78,7 @@ FunctionEnd
 ;   - The complete path to the executable to run.
 ;   - The arguments to pass to the executable (use an empty string "" for none).
 ;   - The working directory for the task.
+;   - The account to run the service under (either "Local Service" or "System")
 ; Return Value:
 ;   This function returns a a value on the stack to indicate the results that
 ;   must be poped off after the function returns.  The value will be the string
@@ -87,7 +88,7 @@ Function CreateTask
   SetPluginUnload alwaysoff
 
   ; store registers and pop params
-  System::Store "S r5r4r3r2r1r0"
+  System::Store "S r6r5r4r3r2r1r0"
 
   StrCpy $R0 "error" ; result
 
@@ -310,12 +311,12 @@ Function CreateTask
 
   ; ---------------------------------------------------------------
   ; Save the task in the root folder
-;  System::Call "*(i22, w 'Boot Trigger Test Task') i.R8"           ; Crate a BSTR
+;  System::Call "*(i22, w r0) i.R8"                                 ; Crate a BSTR
 ;  System::Call "*(i 13, w 'Local Service') i.R7"                   ; Create a BSTR
 ;  System::Call "*(i 0, w '') i.R6"                                 ; Create a BSTR
-  System::Call "oleaut32::SysAllocString(w r0) i.R8"           ; Crate a BSTR
-  System::Call "oleaut32::SysAllocString(w 'Local Service') i.R7"                    ; Create a BSTR
-  System::Call "oleaut32::SysAllocString(w '') i.R6"                                 ; Create a BSTR
+  System::Call "oleaut32::SysAllocString(w r0) i.R8"                ; Crate a BSTR
+  System::Call "oleaut32::SysAllocString(w r6) i.R7"                ; Create a BSTR
+  System::Call "oleaut32::SysAllocString(w '') i.R6"                ; Create a BSTR
   ; ITaskFolder->RegisterTaskDefinition()
 ;  System::Call "$R2->17($R8 + 4, \
 ;                        i $R3, \

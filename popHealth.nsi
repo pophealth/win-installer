@@ -144,9 +144,14 @@ Section "Start Menu Shortcuts" sec_startmenu
 
   SectionIn 1 2 3
 
+  SetOutPath $INSTDIR
+
+  ; Create an Internet shortcut for popHealth web app
+  WriteINIStr "$INSTDIR\popHealth.URL" "InternetShortcut" "URL" "http://localhost:3000/"
+
   CreateDirectory "$SMPROGRAMS\popHealth"
   CreateShortCut "$SMPROGRAMS\popHealth\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
-  CreateShortCut "$SMPROGRAMS\popHealth\popHealth (MakeNSISW).lnk" "$INSTDIR\popHealth.nsi" "" "$INSTDIR\popHealth.nsi" 0
+  CreateShortCut "$SMPROGRAMS\popHealth\popHealth.lnk" "$INSTDIR\popHealth.URL" "" "" ""
   
 SectionEnd
 
@@ -295,9 +300,11 @@ Section "Install Redis" sec_redis
   push "$redisdir\${BUILDARCH}bit\redis-server.exe"
   push "redis.conf"
   push "$redisdir\${BUILDARCH}bit"
+  push "Local Service"
   Call CreateTask
   pop $0
   DetailPrint "Result of scheduling Redis Server task: $0"
+  SetRebootFlag true
 SectionEnd
 
 ; Required Section - Install popHealth Quality Measure Definitions
@@ -345,9 +352,11 @@ Section "popHealth Web Application" sec_popHealth
   push "$rubydir\bin\bundle.bat"
   push "exec rails server"
   push "$INSTDIR\popHealth"
+  push "System"
   Call CreateTask
   pop $0
   DetailPrint "Result of scheduling Web Server task: $0"
+  SetRebootFlag true
 SectionEnd
 
 ; Optional Section - Install resque worker service
@@ -368,9 +377,11 @@ Section "Install resque workers" sec_resque
   push "$INSTDIR\popHealth\script\run-resque.bat"
   push ""
   push "$INSTDIR\popHealth"
+  push "Local Service"
   Call CreateTask
   pop $0
   DetailPrint "Result of scheduling resque workers task: $0"
+  SetRebootFlag true
 SectionEnd
 
 ; Optional Section - Install test patient records
@@ -442,7 +453,7 @@ Section "Uninstall"
   push "popHealth Resque Workers"
   Call un.DeleteTask
   pop $0
-  DetailPrint "Results of deleting Redis Server task: $0"
+  DetailPrint "Results of deleting Resque Workers task: $0"
 
   ; Uninstall popHealth web application
   ExecWait 'schtasks.exe /end /tn "popHealth Web Server"'
@@ -505,6 +516,7 @@ Section "Uninstall"
 
   ; Remove files and uninstaller
   Delete $INSTDIR\uninstall.exe
+  Delete $INSTDIR\popHealth.URL
 
   ; Remove shortcuts, if any
   Delete "$SMPROGRAMS\popHealth\*.*"
