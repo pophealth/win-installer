@@ -75,6 +75,18 @@ LicenseData license.txt
     MessageBox MB_OK "Failed to set environment variable '${Name}'"
 !macroend
 
+; This macro adds an environment variable to the registry for all users
+!macro AddEnvVarToReg Name Value
+  WriteRegExpandStr ${env_allusers} '${Name}' '${Value}'
+!macroend
+
+; This macro adds an environment variable to the registry for all users, and
+; adds it to the environment of the installer and sub-processes
+!macro EnvVarEverywhere Name Value
+  !insertmacro AddEnvVarToReg '${Name}' '${Value}'
+  !insertmacro SetInstallerEnvVar '${Name}' '${Value}'
+!macroend
+
 ;--------------------------------
 ;Interface Settings
 
@@ -382,12 +394,11 @@ Section "popHealth Quality Measures" sec_qualitymeasures
   SetOutPath $INSTDIR
 
   ; clone the quality measures repository
-  ExecWait '"$gitdir\cmd\git.cmd" clone https://github.com/pophealth/measures.git'
+  ExecWait 'git.cmd clone https://github.com/pophealth/measures.git'
 
   ; Install required gems
   SetOutPath $INSTDIR\measures
-;  ExecWait '"$rubydir\bin\bundle.bat" install'
-  ExecWait 'cmd.exe /c "$rubydir\bin\bundle.bat install"'
+  ExecWait 'bundle.bat install'
 SectionEnd
 
 ;-----------------------------------------------------------------------------
@@ -409,12 +420,16 @@ Section "popHealth Web Application" sec_popHealth
   SetOutPath $INSTDIR
 
   ; clone popHealth web application repository
-  ExecWait '"$gitdir\cmd\git.cmd" clone https://github.com/pophealth/popHealth.git'
+  ExecWait 'git.cmd clone https://github.com/pophealth/popHealth.git'
 
   ; Install required gems
   SetOutPath $INSTDIR\popHealth
-  ExecWait 'bundle.bat install'
-  ExecWait 'gem.bat install bson_ext'
+  ExecWait 'bundle.bat install --without="test develop"'
+  ExecWait 'gem.bat install bson_ext -v 1.3.1'
+
+  ; Create Environment variables needed for popHealth production env
+  !insertmacro EnvVarEverywhere 'RAILS_ENV' 'production'
+  !insertmacro EnvVarEverywhere 'MONGOID_DATABASE' 'pophealth-windows'
 
   ; Create admin user account
   ExecWait 'bundle.bat exec rake admin:create_admin_account'
@@ -478,7 +493,7 @@ Section "Install patient records" sec_samplepatients
   SetOutPath $INSTDIR\measures
 
   ; Define an environment variable for the database to use
-  !insertmacro SetInstallerEnvVar 'DB_NAME' 'pophealth-development'
+  !insertmacro SetInstallerEnvVar 'DB_NAME' 'pophealth-windows'
 
   ; Generate records
   ExecWait 'bundle.bat exec rake mongo:reload_bundle'
@@ -680,8 +695,8 @@ Function ProxySettingsLeave
   ;MessageBox MB_OK "You Entered:$\n  Use Proxy: $useProxy$\n  Server: $proxyServer$\n  Port: $proxyPort"
   ${If} $useProxy == 1
     ; This will permanently set the environment variable for future use of popHealth
-    WriteRegExpandStr ${env_allusers} 'http_proxy' 'http://$proxyServer:$proxyPort/'
-    WriteRegExpandStr ${env_allusers} 'https_proxy' 'http://$proxyServer:$proxyPort/'
+    !insertmacro AddEnvVarToReg 'http_proxy' 'http://$proxyServer:$proxyPort/'
+    !insertmacro AddEnvVarToReg 'https_proxy' 'http://$proxyServer:$proxyPort/'
     ; Make sure Windows knows about the change
     SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 
