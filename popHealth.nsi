@@ -78,6 +78,8 @@ LicenseData license.txt
 ; This macro adds an environment variable to the registry for all users
 !macro AddEnvVarToReg Name Value
   WriteRegExpandStr ${env_allusers} '${Name}' '${Value}'
+  ; Make sure Windows knows about the change
+  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 !macroend
 
 ; This macro adds an environment variable to the registry for all users, and
@@ -424,12 +426,8 @@ Section "popHealth Web Application" sec_popHealth
 
   ; Install required gems
   SetOutPath $INSTDIR\popHealth
-  ExecWait 'bundle.bat install --without="test develop"'
+  ExecWait 'bundle.bat install'
   ExecWait 'gem.bat install bson_ext -v 1.3.1'
-
-  ; Create Environment variables needed for popHealth production env
-  !insertmacro EnvVarEverywhere 'RAILS_ENV' 'production'
-  !insertmacro EnvVarEverywhere 'MONGOID_DATABASE' 'pophealth-windows'
 
   ; Create admin user account
   ExecWait 'bundle.bat exec rake admin:create_admin_account'
@@ -493,7 +491,7 @@ Section "Install patient records" sec_samplepatients
   SetOutPath $INSTDIR\measures
 
   ; Define an environment variable for the database to use
-  !insertmacro SetInstallerEnvVar 'DB_NAME' 'pophealth-windows'
+  !insertmacro SetInstallerEnvVar 'DB_NAME' 'pophealth-development'
 
   ; Generate records
   ExecWait 'bundle.bat exec rake mongo:reload_bundle'
@@ -697,8 +695,6 @@ Function ProxySettingsLeave
     ; This will permanently set the environment variable for future use of popHealth
     !insertmacro AddEnvVarToReg 'http_proxy' 'http://$proxyServer:$proxyPort/'
     !insertmacro AddEnvVarToReg 'https_proxy' 'http://$proxyServer:$proxyPort/'
-    ; Make sure Windows knows about the change
-    SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 
     ; We will also need these environment variables defined for later install tasks
     !insertmacro SetInstallerEnvVar 'http_proxy' 'http://$proxyServer:$proxyPort/'
