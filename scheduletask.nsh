@@ -1,11 +1,14 @@
-; Provides a collection of functions that will use the Task Scheduler 2.0 API to schedule or
-; delete a boot task.
+; Provides a collection of functions that will use the Task Scheduler 1.0 or
+; 2.0 API to schedule or delete a boot task.
 
-; The Class and Interface ID guid for the services that we will be using.
-!define CLSID_TaskScheduler "{0F87369F-A4E5-4CFC-BD3E-73E6154572DD}"
-!define IID_ITaskService "{2FABA4C7-4DA9-4013-9697-20CC3FD40F85}"
-!define IID_IBootTrigger "{2A9C35DA-D357-41F4-BBC1-207AC1B1F3CB}"
-!define IID_IExecAction "{4C3D624D-FD6B-49A3-B9B7-09CB3CD3F047}"
+!include "WinVer.nsh"
+
+;=============================================================================
+;                    GENERIC CREATE AND DELETE FUNCTIONS
+;
+; These are the functions that should be called by other scripts.  They will
+; call the appropriate functions based on the windows version.
+;=============================================================================
 
 ;===============================================================================
 ; Delete a previously scheduled task.
@@ -26,6 +29,237 @@
 ;===============================================================================
 !macro wrapDeleteTask un
 Function ${un}DeleteTask
+  ${If} ${AtMostWinXP}
+    Call ${un}DeleteTaskV1
+  ${Else}
+    Call ${un}DeleteTaskV2
+  ${EndIf}
+FunctionEnd
+!macroend
+!insertmacro wrapDeleteTask ""
+!insertmacro wrapDeleteTask "un."
+
+;===============================================================================
+; Create a new scheduled task to start at system boot time.
+;
+; Arguments: This function takes 7 string arguments that must be pushed onto the
+;   stack in the following order before calling this function:
+;   - The name that the task will have in the Task Scheduler
+;   - A description of what the task does.
+;   - Start delay.  This determines the amount of time from when the system is
+;     booted to when the task will start.  The format for this string is
+;     PnYnMnDTnHnMnS, where nY is the number of years, nM is the number of
+;     months, nD is the number of days, 'T' is the date/time separator, nH is
+;     the number of hours, nM is the munger of minutes, and nS is the number of
+;     seconds (for example, PT5M specifies 5 minutes, and P1M4DT2H5M specifies
+;     one month, four days, 2 hours and 5 minutes).
+;   - The complete path to the executable to run.
+;   - The arguments to pass to the executable (use an empty string "" for none).
+;   - The working directory for the task.
+;   - The account to run the service under (either "Local Service" or "System")
+; Return Value:
+;   This function returns a a value on the stack to indicate the results that
+;   must be poped off after the function returns.  The value will be the string
+;   "error" if there was a problem scheduling the task, or "ok" for success.
+;===============================================================================
+Function CreateTask
+  ${If} ${AtMostWinXP}
+    Call CreateTaskV1
+  ${Else}
+    Call CreateTaskV2
+  ${EndIf}
+FunctionEnd
+
+;=============================================================================
+;                     TASK SCHEDULER V1.0 API FUNCTIONS
+;
+; Everything in this section is for working with the Task Scheduler V1.0 API.
+; This API must be used for versions of Windows up to XP.
+;=============================================================================
+
+!define CLSID_TaskSchedulerV1 "{148BD52A-A2AB-11CE-B11F-00AA00530503}"
+!define IID_ITaskSchedulerV1 "{148BD527-A2AB-11CE-B11F-00AA00530503}"
+!define CLSID_TaskV1 "{148BD520-A2AB-11CE-B11F-00AA00530503}"
+!define IID_ITaskV1 "{148BD524-A2AB-11CE-B11F-00AA00530503}"
+!define IID_IPersistFileV1 "{0000010B-0000-0000-C000-000000000046}"
+
+;===============================================================================
+; Delete a previously scheduled task.
+;
+; This is provided as a macro so that it can also be called from the uninstaller
+; (where the name has to start with "un.").  If calling from the installer, use
+;    Call DeleteTask ""
+; From the uninstaller, use:
+;    Call un.DeleteTask
+;
+; Arguments:
+;   - The name of the task used when the task was originally registered.
+; Return Value:
+;   This function returns an integer on the stack that should be popped off
+;   after calling this function.  This value will be the return value of the
+;   ITaskFolder->DeleteTask() call (0 indicates success.  Otherwise it is a
+;   HRESULT error code.
+;===============================================================================
+!macro wrapDeleteTaskV1 un
+Function ${un}DeleteTaskV1
+  ; Store registers and pop params
+  System::Store "S r0"
+
+  ; Create ITaskScheduler object
+  System::Call "ole32::CoCreateInstance(g '${CLSID_TaskSchedulerV1}', i 0, i 1, g '${IID_ITaskSchedulerV1}', *i .R1) i.R9"
+  IntCmp $R9 0 0 End
+
+  ; ITaskScheduler->Delete()
+  System::Call '$R1->7(w r0) i.R9'
+
+End:
+  ; IUnknown->Release
+  System::Call '$R1->2() i'
+
+  ; restore registers and push result
+  System::Store "P9 l"
+FunctionEnd
+!macroend
+!insertmacro wrapDeleteTaskV1 ""
+!insertmacro wrapDeleteTaskV1 "un."
+
+;===============================================================================
+; Create a new scheduled task to start at system boot time.
+;
+; Arguments: This function takes 7 string arguments that must be pushed onto the
+;   stack in the following order before calling this function:
+;   - The name that the task will have in the Task Scheduler
+;   - A description of what the task does.
+;   - Start delay.  This determines the amount of time from when the system is
+;     booted to when the task will start.  The format for this string is
+;     PnYnMnDTnHnMnS, where nY is the number of years, nM is the number of
+;     months, nD is the number of days, 'T' is the date/time separator, nH is
+;     the number of hours, nM is the munger of minutes, and nS is the number of
+;     seconds (for example, PT5M specifies 5 minutes, and P1M4DT2H5M specifies
+;     one month, four days, 2 hours and 5 minutes).
+;   - The complete path to the executable to run.
+;   - The arguments to pass to the executable (use an empty string "" for none).
+;   - The working directory for the task.
+;   - The account to run the service under (either "Local Service" or "System")
+; Return Value:
+;   This function returns a a value on the stack to indicate the results that
+;   must be poped off after the function returns.  The value will be the string
+;   "error" if there was a problem scheduling the task, or "ok" for success.
+;===============================================================================
+Function CreateTaskV1
+  SetPluginUnload alwaysoff
+
+  ; store registers and pop params
+  System::Store "S r6r5r4r3r2r1r0"
+
+  StrCpy $R0 "error" ; result
+
+  ; Create ITaskScheduler object
+  System::Call "ole32::CoCreateInstance(g '${CLSID_TaskSchedulerV1}', i 0, i 1, g '${IID_ITaskSchedulerV1}', *i .R1) i.R9"
+  IntCmp $R9 0 0 End
+
+  ; ITaskScheduler->NewWorkItem()
+  System::Call '$R1->8(w r0, g "${CLSID_TaskV1}", g "${IID_ITaskV1}", *i .R2) i.R9'
+
+  ; IUnknown->Release()
+  System::Call '$R1->2() i'       ; release Task Scheduler object
+  IntCmp $R9 0 0 End
+
+  ; ITask->SetComment()
+  System::Call '$R2->18(w r1)'
+
+  ; ITask->SetApplicationName()
+  System::Call '$R2->32(w r3)'
+
+  ; ITask->SetWorkingDir()
+  System::Call '$R2->36(w r5)'
+
+  ; ITask->SetParameters()
+  System::Call '$R2->34(w r4)'
+
+  ; ITask->CreateTrigger(trindex, ITaskTrigger)
+  System::Call '$R2->3(*i .R4, *i .R5)'
+
+  ; allocate TASK_TRIGGER structure
+  System::Call '*(&l2, &i2 0, \
+                    &i2 2011, &i2 12, &i2 12, \
+                    &i2 0, &i2 0, &i2 0, \
+                    &i2 0, &i2 0, \
+                    i 0, i 0, \
+                    i 0, \
+                    i 6, \
+                    &i2 0, &i2 0, &i2 0, &i2 0, &i2 0) i.s'
+  Pop $R6
+
+  ; ITaskTrigger->SetTrigger
+  System::Call '$R5->3(i R6)'
+  ; ITaskTrigger->Release
+  System::Call '$R5->2()'
+
+  ; free TASK_TRIGGER structure
+  System::Free $R6
+
+  ; ITask->SetAccountInformation
+  System::Call '$R2->30(w "", i 0)'
+
+  ; IUnknown->QueryInterface
+  System::Call '$R2->0(g "${IID_IPersistFileV1}", *i .R3) i.R9'
+
+  ; IUnknown->Release()
+  System::Call '$R2->2() i'              ; release Task object
+  IntCmp $R9 0 0 End
+
+  ; IPersistFile->Save
+  System::Call '$R3->6(i 0, i 1) i.R9'
+
+  ; IUnknown->Release()
+  System::Call '$R3->2() i'
+
+  IntCmp $R9 0 0 End
+  StrCpy $R0 "ok"
+
+End:
+  ; restore registers and push result
+  System::Store "P0 l"
+
+  ; last plugin call must not have /NOUNLOAD so NSIS will be able to delete the temporary DLL
+  SetPluginUnload manual
+  ; do nothing
+  System::Free 0
+FunctionEnd
+
+;=============================================================================
+;                     TASK SCHEDULER V2.0 API FUNCTIONS
+;
+; Everything below this is for working with the Task scheduler V2.0 API.  This
+; API must be used for Windows versions starting with Vista.
+;=============================================================================
+
+; The Class and Interface ID guid for the services that we will be using.
+!define CLSID_TaskSchedulerV2 "{0F87369F-A4E5-4CFC-BD3E-73E6154572DD}"
+!define IID_ITaskServiceV2 "{2FABA4C7-4DA9-4013-9697-20CC3FD40F85}"
+!define IID_IBootTriggerV2 "{2A9C35DA-D357-41F4-BBC1-207AC1B1F3CB}"
+!define IID_IExecActionV2 "{4C3D624D-FD6B-49A3-B9B7-09CB3CD3F047}"
+
+;===============================================================================
+; Delete a previously scheduled task.
+;
+; This is provided as a macro so that it can also be called from the uninstaller
+; (where the name has to start with "un.").  If calling from the installer, use
+;    Call DeleteTask ""
+; From the uninstaller, use:
+;    Call un.DeleteTask
+;
+; Arguments:
+;   - The name of the task used when the task was originally registered.
+; Return Value:
+;   This function returns an integer on the stack that should be popped off
+;   after calling this function.  This value will be the return value of the
+;   ITaskFolder->DeleteTask() call (0 indicates success.  Otherwise it is a
+;   HRESULT error code.
+;===============================================================================
+!macro wrapDeleteTaskV2 un
+Function ${un}DeleteTaskV2
   ; Store registers and pop params
   System::Store "S r0"
 
@@ -58,13 +292,13 @@ ReleaseITaskService:
   System::Store "P9 l"
 FunctionEnd
 !macroend
-!insertmacro wrapDeleteTask ""
-!insertmacro wrapDeleteTask "un."
+!insertmacro wrapDeleteTaskV2 ""
+!insertmacro wrapDeleteTaskV2 "un."
 
 ;===============================================================================
 ; Create a new scheduled task to start at system boot time.
 ;
-; Arguments: This function takes 6 string arguments that must be pushed onto the
+; Arguments: This function takes 7 string arguments that must be pushed onto the
 ;   stack in the following order before calling this function:
 ;   - The name that the task will have in the Task Scheduler
 ;   - A description of what the task does.
@@ -84,7 +318,7 @@ FunctionEnd
 ;   must be poped off after the function returns.  The value will be the string
 ;   "error" if there was a problem scheduling the task, or "ok" for success.
 ;===============================================================================
-Function CreateTask
+Function CreateTaskV2
   SetPluginUnload alwaysoff
 
   ; store registers and pop params
@@ -207,7 +441,7 @@ Function CreateTask
   IntCmp $R9 0 0 ReleaseITaskFolder
 
   ; ITrigger->QueryInterface()
-  System::Call "$R4->0(g '${IID_IBootTrigger}', *i.R1) i.R9"
+  System::Call "$R4->0(g '${IID_IBootTriggerV2}', *i.R1) i.R9"
   ; ITrigger->Release()
   System::Call "$R4->2()"
   IntCmp $R9 0 0 ReleaseITaskFolder
@@ -271,7 +505,7 @@ Function CreateTask
 
   ; QI for the executable task pointer
   ; IAction->QueryInterface()
-  System::Call "$R4->0(g '${IID_IExecAction}', *i.R1) i.R9"
+  System::Call "$R4->0(g '${IID_IExecActionV2}', *i.R1) i.R9"
   ; IAction->Release()
   System::Call "$R4->2()"
   IntCmp $R9 0 0 ReleaseITaskFolder
@@ -391,7 +625,7 @@ Function ${un}_CreateITaskServiceAndConnect
   System::Store "S"
 
   ; Create ITaskService object
-  System::Call "ole32::CoCreateInstance(g '${CLSID_TaskScheduler}', i 0, i 1, g '${IID_ITaskService}', *i .R1) i.R9"
+  System::Call "ole32::CoCreateInstance(g '${CLSID_TaskSchedulerV2}', i 0, i 1, g '${IID_ITaskServiceV2}', *i .R1) i.R9"
   IntCmp $R9 0 0 End
 
   ; Connect to the task service: ITaskService->Connect()
