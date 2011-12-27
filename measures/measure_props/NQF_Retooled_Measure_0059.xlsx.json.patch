@@ -1,0 +1,10 @@
+{
+  "N_1946": {  
+    "value": {
+      "type": "number",
+      "description": "hba1c",
+      "date_description": "Date of hba1c status test" 
+    }
+  }
+}
+

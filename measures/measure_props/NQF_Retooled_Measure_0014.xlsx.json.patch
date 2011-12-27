@@ -1,0 +1,17 @@
+{
+  "A_1156": {  
+    "value": {
+      "type": "boolean",
+      "description": "rh status",
+      "date_description": "Date of rh status test" 
+    }
+  },
+  "A_1155": {  
+    "value": {
+      "type": "boolean",
+      "description": "rh status",
+      "date_description": "Date of rh status test" 
+    }
+  }
+}
+

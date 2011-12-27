@@ -1,0 +1,23 @@
+{
+  "A_1366": {
+    "value": {
+      "type": "number",
+      "description": "Heart rate",
+      "date_description": "Date of heart rate" 
+    }
+  },
+  "A_1367": {
+    "value": {
+      "type": "number",
+      "description": "Heart rate",
+      "date_description": "Date of heart rate" 
+    }
+  },
+  "A_1368": {
+    "value": {
+      "type": "number",
+      "description": "Heart rate",
+      "date_description": "Date of heart rate" 
+    }
+  }
+}

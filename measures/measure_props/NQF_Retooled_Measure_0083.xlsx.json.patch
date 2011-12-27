@@ -1,0 +1,31 @@
+{
+  "A_522": {  
+      "value": {
+      "type": "number",
+      "description": "Ejection Fraction",
+      "date_description": "Date of Ejection Fraction" 
+    }
+  },
+  "A_523": {
+     "value": {
+      "type": "number",
+      "description": "Ejection Fraction",
+      "date_description": "Date of Ejection Fraction" 
+    }
+  },
+  "A_524": {
+     "value": {
+      "type": "number",
+      "description": "LVF ASSMT",
+      "date_description": "Date of LVF ASSMT" 
+    }
+  },
+  "A_525": {
+     "value": {
+      "type": "number",
+      "description": "LVF ASSMT",
+      "date_description": "Date of LVF ASSMT" 
+    }
+  }
+}
+

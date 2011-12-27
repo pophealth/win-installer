@@ -1,0 +1,16 @@
+{
+  "A_1674": {  
+    "value": {
+      "type": "number",
+      "description": "LDL",
+      "date_description": "Date of LDL test" 
+    }
+  },
+  "A_1675": {  
+    "value": {
+      "type": "number",
+      "description": "LDL",
+      "date_description": "Date of LDL test" 
+    }
+  }
+}
