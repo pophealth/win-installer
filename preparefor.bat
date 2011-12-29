@@ -113,8 +113,8 @@ if "%myarch%"=="32" (
 )
 
 REM Pull the latest repositories
-call:git measures https://github.com/pophealth/measures.git
-call:git popHealth https://github.com/pophealth/popHealth.git
+call:git measures
+call:git popHealth
 
 REM Run makensis to build installer
 "%makensiscmd%" /DBUILDARCH=%myarch% popHealth.nsi
@@ -122,11 +122,15 @@ REM Run makensis to build installer
 goto:eof
 REM Define functions
 :git
+rmdir %1 2>NUL
 if exist %1 (
-	cd %1
-	git pull
-	cd ..
+  cd %1
+  git pull
+  cd ..
 ) else (
-	git clone %2 %1
+  git submodule update --init
+  cd %1
+  rmdir /s /q .git
+  cd ..
 )
 goto:eof

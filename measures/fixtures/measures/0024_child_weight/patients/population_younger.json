@@ -1,9 +1,0 @@
-{
-  "first": "Jennifer",        // personal data
-  "last": "Thompson",
-  "gender": "F",
-  "patient_id" : "100246",
-  "birthdate": 1157068800,    // Time.gm(2006, 9, 1).to_i
-  "measures": {               // bag of measures, one entry per measure
-  }
-}
