@@ -41,14 +41,6 @@ OutFile "popHealth-x86_64.exe"
 !echo "BUILDARCH = ${BUILDARCH}"
 !echo "jrubyinst = ${jrubyinst}"
 
-; The default installation directory
-; TODO: change this to C:\projects for final version.
-InstallDir C:\proj\popHealth
-
-; Registry key to check for directory (so if you install again, it will 
-; overwrite the old one automatically)
-InstallDirRegKey HKLM "Software\popHealth" "Install_Dir"
-
 ; Request application privileges for Windows Vista
 RequestExecutionLevel admin
 
@@ -98,6 +90,7 @@ LicenseData license.txt
 XPStyle on
 
 Var Dialog
+var systemdrive ;Set the primary drive letter for the system
 var rubydir    ; The root directory of the ruby install to use
 var mongodir   ; The root directory of the mongodb install
 var redisdir   ; The root directory of the redis install
@@ -279,19 +272,19 @@ Section "Install Ruby DevKit" sec_rdevkit
       presented.' /SD IDOK IDCANCEL skiprdevkit
     File "DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe"
     ClearErrors
-    ExecWait '"$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe" -oC:\DevKit'
+    ExecWait '"$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe" -o$systemdrive\DevKit'
     ; Change output directory to the DevKit directory
-    SetOutPath C:\DevKit
+    SetOutPath $systemdrive\DevKit
     ; TODO: This presumes the user accepted the default when installing ruby.  The NSIS SearchPath command will not
     ;       help because it searches the path the installer inherited.
     ;       Even if ruby was added to the path during the earlier install, the popHealth installer is running with
     ;       the old path.  Another option might be to add a RunOnce script to do this devkit config step
-    IfFileExists C:\Ruby192\bin\ruby.exe 0 rubynotfound
-      ExecWait "C:\Ruby192\bin\ruby dk.rb init"
+    IfFileExists $systemdrive\Ruby192\bin\ruby.exe 0 rubynotfound
+      ExecWait "$systemdrive\Ruby192\bin\ruby dk.rb init"
       IfErrors 0 +3
         DetailPrint 'Failed to setup devkit.  Will install RunOnce task.'
         Goto rubynotfound
-      ExecWait "C:\Ruby192\bin\ruby dk.rb install"
+      ExecWait "$systemdrive\Ruby192\bin\ruby dk.rb install"
       Goto donerdevkit
     rubynotfound:
       MessageBox MB_ICONEXCLAMATION|MB_OK 'Failed to find where ruby was installed'
@@ -335,15 +328,15 @@ Section "Install MongoDB" sec_mongodb
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
 
-  SetOutPath "C:\mongodb-2.0.1"
+  SetOutPath "$systemdrive\mongodb-2.0.1"
 
   File /r mongodb-2.0.1\*.*
 
   ; Create a data directory for mongodb
-  SetOutPath c:\data\db
+  SetOutPath $systemdrive\data\db
 
   ; Install the mongodb service
-  ExecWait '"$mongodir\bin\mongod" --logpath C:\data\logs --logappend --dbpath C:\data\db --directoryperdb --install'
+  ExecWait '"$mongodir\bin\mongod" --logpath $systemdrive\data\logs --logappend --dbpath $systemdrive\data\db --directoryperdb --install'
 
   ; Start the mongodb service
   ExecWait 'net.exe start "Mongo DB"'
@@ -593,7 +586,7 @@ Section "Uninstall"
   ; TODO: Did we really install it?
   MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed the Ruby DevKit.  Do you want us to uninstall it?' \
     /SD IDYES IDNO skiprdevkituninst
-    RMDIR /r "C:\DevKit"
+    RMDIR /r "$systemdrive\DevKit"
   skiprdevkituninst:
 
   ; Uninstall the Bundler gem
@@ -725,14 +718,28 @@ FunctionEnd
 ; This function is called when the installer starts.  It is used to initialize some
 ; needed variables
 Function .onInit
-  StrCpy $rubydir "C:\Ruby192"
-  StrCpy $gitdir  "C:\Program Files\Git"
-  StrCpy $mongodir "C:\mongodb-2.0.1"
-  StrCpy $redisdir "C:\redis-2.4.0"
+  StrCpy $systemdrive $WINDIR 2
+  
+  ; The default installation directory
+  ; TODO: change this to $systemdrive\projects for final version.
+  StrCpy $INSTDIR "$systemdrive\proj\popHealth\"
+  
+  ; Registry key to check for directory (so if you install again, it will 
+  ; overwrite the old one automatically)
+  push $0
+  ReadRegStr $0 HKLM "Software\popHealth" "Install_Dir"
+  IfFileExists $0 0 +2
+  StrCpy $INSTDIR $0
+  pop $0
+  
+  StrCpy $rubydir "$systemdrive\Ruby192"
+  StrCpy $gitdir  "$systemdrive\Program Files\Git"
+  StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
+  StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 Function un.onInit
-  StrCpy $mongodir "C:\mongodb-2.0.1"
-  StrCpy $redisdir "C:\redis-2.4.0"
+  StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
+  StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 
 ; This function adds the passed directory to the path (only for installer and subprocesses)
