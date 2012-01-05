@@ -262,48 +262,6 @@ Section "Install Bundler" sec_bundler
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; Ruby DevKit
-;
-; Unpacks the ruby development kit.  This component is required in order to
-; build native ruby gems on Windows.
-; TODO: If the required native gems are prebuilt and included in the installer
-;       than this component could be removed.
-;-----------------------------------------------------------------------------
-Section "Install Ruby DevKit" sec_rdevkit
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 145079                 ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install the Ruby DevKit. Please accept all defaults \
-      presented.' /SD IDOK IDCANCEL skiprdevkit
-    File "DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe"
-    ClearErrors
-    ExecWait '"$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe" -oC:\DevKit'
-    ; Change output directory to the DevKit directory
-    SetOutPath C:\DevKit
-    ; TODO: This presumes the user accepted the default when installing ruby.  The NSIS SearchPath command will not
-    ;       help because it searches the path the installer inherited.
-    ;       Even if ruby was added to the path during the earlier install, the popHealth installer is running with
-    ;       the old path.  Another option might be to add a RunOnce script to do this devkit config step
-    IfFileExists C:\Ruby192\bin\ruby.exe 0 rubynotfound
-      ExecWait "C:\Ruby192\bin\ruby dk.rb init"
-      IfErrors 0 +3
-        DetailPrint 'Failed to setup devkit.  Will install RunOnce task.'
-        Goto rubynotfound
-      ExecWait "C:\Ruby192\bin\ruby dk.rb install"
-      Goto donerdevkit
-    rubynotfound:
-      MessageBox MB_ICONEXCLAMATION|MB_OK 'Failed to find where ruby was installed'
-      ; TODO: Add RunOnce task here.
-      ; Fall through to clean up
-    donerdevkit:
-      Delete "$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe"
-  skiprdevkit:
-    ClearErrors
-SectionEnd
-
-;-----------------------------------------------------------------------------
 ; JRuby
 ;
 ; Runs the JRuby install program and waits for it to finish.
@@ -424,11 +382,16 @@ Section "popHealth Web Application" sec_popHealth
   ; clone popHealth web application repository
   ExecWait 'git.cmd clone https://github.com/pophealth/popHealth.git'
 
-  ; Install required gems
+  ; Install required gems  
+  SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
+  File /r bson_ext-1.5.1
+  File /r json-1.4.6
+  SetOutPath $rubydir\lib\ruby\gems\1.9.1\specifications
+  File bson_ext-1.5.1.gemspec
+  File json-1.4.6.gemspec
   SetOutPath $INSTDIR\popHealth
   ExecWait 'bundle.bat install'
-  ExecWait 'gem.bat install bson_ext -v 1.3.1'
-
+  
   ; Create admin user account
   ExecWait 'bundle.bat exec rake admin:create_admin_account'
 
@@ -507,7 +470,6 @@ SectionEnd
   LangString DESC_sec_git       ${LANG_ENGLISH} "Git revision control system"
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
-  LangString DESC_sec_rdevkit   ${LANG_ENGLISH} "Ruby Development Kit"
   LangString DESC_sec_jruby     ${LANG_ENGLISH} "JRuby script interpreter"
   LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
@@ -526,7 +488,6 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_git} $(DESC_sec_git)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_rdevkit} $(DESC_sec_rdevkit)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_jruby} $(DESC_sec_jruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
@@ -588,13 +549,6 @@ Section "Uninstall"
     ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\4535-5096-5383-5182" "UninstallString"
     ExecWait '$0'
   skipjrubyuninst:
-
-  ; Uninstall ruby devkit -- Should we do a silent uninstall?
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed the Ruby DevKit.  Do you want us to uninstall it?' \
-    /SD IDYES IDNO skiprdevkituninst
-    RMDIR /r "C:\DevKit"
-  skiprdevkituninst:
 
   ; Uninstall the Bundler gem
   ExecWait "gem.bat uninstall -x bundler"
