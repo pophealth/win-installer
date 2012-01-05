@@ -1,4 +1,4 @@
-@echo off
+REM @echo off
 setlocal
 
 REM ==========================================================================
@@ -36,7 +36,7 @@ if not "%1"=="" (
 
 echo Preparing to build a %myarch%-bit installer...
 
-REM We need unzip and makensis on the path.  Check for 'em
+REM We need unzip, makensis, and git on the path.  Check for 'em
 set unzipcmd=
 set makensiscmd=
 for %%e in (%PATHEXT%) do (
@@ -55,6 +55,15 @@ for %%e in (%PATHEXT%) do (
 )
 if "%makensiscmd%"=="" (
   echo makensis command was not found on the path.  Please correct.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
+  for %%x in (git%%e) do (
+    if not defined gitcmd (set gitcmd=%%~$PATH:x)
+  )
+)
+if "%gitcmd%"=="" (
+  echo git command was not found on the path.  Please correct.
   exit /b 1
 )
 
@@ -103,5 +112,25 @@ if "%myarch%"=="32" (
   ren mongodb-win32-x86_64-2.0.1 %mongodbdir%
 )
 
+REM Pull the latest repositories
+call:git measures
+call:git popHealth
+
 REM Run makensis to build installer
 "%makensiscmd%" /DBUILDARCH=%myarch% popHealth.nsi
+
+goto:eof
+REM Define functions
+:git
+rmdir %1 2>NUL
+if exist %1 (
+  cd %1
+  git pull
+  cd ..
+) else (
+  git submodule update --init
+  cd %1
+  rmdir /s /q .git
+  cd ..
+)
+goto:eof

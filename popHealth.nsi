@@ -101,7 +101,6 @@ Var Dialog
 var rubydir    ; The root directory of the ruby install to use
 var mongodir   ; The root directory of the mongodb install
 var redisdir   ; The root directory of the redis install
-var gitdir     ; The root directory of the git install
 
 ;--------------------------------
 ; Pages
@@ -184,35 +183,6 @@ Section "Start Menu Shortcuts" sec_startmenu
   
 SectionEnd
 
-;-----------------------------------------------------------------------------
-; Git
-;
-; Runs the Git install program and waits for it to finish.
-; TODO: Need to record somehow whether we actually install this so that the
-;       uninstaller can remove it.
-;-----------------------------------------------------------------------------
-Section "Install Git" sec_git
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 54682                  ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install Git.  On the sixth dialog, select \
-      "Run Git from the Windows  Command Prompt". Just click "Next" on all other dialogs.' /SD IDOK IDCANCEL skipgit
-    File "Git-1.7.7-preview20111014.exe"
-    ExecWait '"$INSTDIR\depinstallers\Git-1.7.7-preview20111014.exe"'
-    Delete "$INSTDIR\depinstallers\Git-1.7.7-preview20111014.exe"
-  skipgit:
-
-  ; We need a git install.  If we don't find git where we expect, ask user
-  IfFileExists "$gitdir\cmd\git.cmd" gitdone 0
-    ; TODO: Need to prompt the user to tell us where git is installed.
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Git not found!"
-  gitdone:
-  Push "$gitdir\cmd"
-  Call AddToPath
-SectionEnd
 
 ;-----------------------------------------------------------------------------
 ; Ruby
@@ -340,21 +310,15 @@ SectionEnd
 ;-----------------------------------------------------------------------------
 ; popHealth Quality Measures
 ;
-; This section clones the github repository.  This approach requires us to
-; install git on the system.
-; TODO: When building the installer, pull the repo from github as a tar or zip
-;       file and distribute that.
+; This section copies the popHealth Quality Measures onto the system
 ;-----------------------------------------------------------------------------
 Section "popHealth Quality Measures" sec_qualitymeasures
 
   SectionIn RO
-  AddSize 5887        ; current size of cloned repo (in kB)
   
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
-
-  ; clone the quality measures repository
-  ExecWait 'git.cmd clone https://github.com/pophealth/measures.git'
+  File /r measures
 
   ; Install required gems
   SetOutPath $INSTDIR\measures
@@ -364,12 +328,9 @@ SectionEnd
 ;-----------------------------------------------------------------------------
 ; popHealth Web Application
 ;
-; This section clones the github repository.  This approach requires us to
-; install git on the system. This also installs a scheduled task with a boot
-; trigger that will start a web server so that the application can be accessed
-; when the system is booted.
-; TODO: When building the installer, pull the repo from github as a tar or zip
-;       file and distribute that.
+; This section copies the popHealth Web Application onto the system.  This also
+;installs a scheduled task with a boot trigger that will start a web server so
+; that the application can be accessed when the system is booted.
 ;-----------------------------------------------------------------------------
 Section "popHealth Web Application" sec_popHealth
 
@@ -378,9 +339,7 @@ Section "popHealth Web Application" sec_popHealth
 
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
-
-  ; clone popHealth web application repository
-  ExecWait 'git.cmd clone https://github.com/pophealth/popHealth.git'
+  File /r pophealth
 
   ; Install required gems  
   SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
@@ -467,7 +426,6 @@ SectionEnd
   ;Language strings
   LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall popHealth"
   LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
-  LangString DESC_sec_git       ${LANG_ENGLISH} "Git revision control system"
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
   LangString DESC_sec_jruby     ${LANG_ENGLISH} "JRuby script interpreter"
@@ -485,7 +443,6 @@ SectionEnd
   !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall} $(DESC_sec_uninstall)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu} $(DESC_sec_startmenu)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_git} $(DESC_sec_git)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_jruby} $(DESC_sec_jruby)
@@ -561,14 +518,6 @@ Section "Uninstall"
         "UninstallString"
     ExecWait '$0'
   skiprubyuninst:
-
-  ; Uninstall git -- Should we do a silent uninstall
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed Git.  Do you want us to uninstall it?' \
-      /SD IDYES IDNO skipgituninst
-    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1" "UninstallString"
-    ExecWait '$0'
-  skipgituninst:
 
   ; Remove files and uninstaller
   Delete $INSTDIR\uninstall.exe
@@ -680,7 +629,6 @@ FunctionEnd
 ; needed variables
 Function .onInit
   StrCpy $rubydir "C:\Ruby192"
-  StrCpy $gitdir  "C:\Program Files\Git"
   StrCpy $mongodir "C:\mongodb-2.0.1"
   StrCpy $redisdir "C:\redis-2.4.0"
 FunctionEnd
