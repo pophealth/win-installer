@@ -41,14 +41,6 @@ OutFile "popHealth-x86_64.exe"
 !echo "BUILDARCH = ${BUILDARCH}"
 !echo "jrubyinst = ${jrubyinst}"
 
-; The default installation directory
-; TODO: change this to C:\projects for final version.
-InstallDir C:\proj\popHealth
-
-; Registry key to check for directory (so if you install again, it will 
-; overwrite the old one automatically)
-InstallDirRegKey HKLM "Software\popHealth" "Install_Dir"
-
 ; Request application privileges for Windows Vista
 RequestExecutionLevel admin
 
@@ -95,7 +87,7 @@ LicenseData license.txt
 !macroend
 
 !macro SetRubyDir
-  StrCpy $rubydir "C:\Ruby192"
+  StrCpy $rubydir "$systemdrive\Ruby192"
   ReadRegStr $0 ${ruby_key}
   StrCmp $0 "" +2
   StrCpy $rubydir $0
@@ -115,6 +107,7 @@ LicenseData license.txt
 XPStyle on
 
 Var Dialog
+var systemdrive ;Set the primary drive letter for the system
 var rubydir    ; The root directory of the ruby install to use
 var mongodir   ; The root directory of the mongodb install
 var redisdir   ; The root directory of the redis install
@@ -289,15 +282,15 @@ Section "Install MongoDB" sec_mongodb
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
 
-  SetOutPath "C:\mongodb-2.0.1"
+  SetOutPath "$systemdrive\mongodb-2.0.1"
 
   File /r mongodb-2.0.1\*.*
 
   ; Create a data directory for mongodb
-  SetOutPath c:\data\db
+  SetOutPath $systemdrive\data\db
 
   ; Install the mongodb service
-  ExecWait '"$mongodir\bin\mongod" --logpath C:\data\logs --logappend --dbpath C:\data\db --directoryperdb --install'
+  ExecWait '"$mongodir\bin\mongod" --logpath $systemdrive\data\logs --logappend --dbpath $systemdrive\data\db --directoryperdb --install'
 
   ; Start the mongodb service
   ExecWait 'net.exe start "Mongo DB"'
@@ -654,13 +647,27 @@ FunctionEnd
 ; This function is called when the installer starts.  It is used to initialize some
 ; needed variables
 Function .onInit
+  StrCpy $systemdrive $WINDIR 2
+  
+  ; The default installation directory
+  ; TODO: change this to $systemdrive\projects for final version.
+  StrCpy $INSTDIR "$systemdrive\proj\popHealth\"
+  
+  ; Registry key to check for directory (so if you install again, it will 
+  ; overwrite the old one automatically)
+  push $0
+  ReadRegStr $0 HKLM "Software\popHealth" "Install_Dir"
+  IfFileExists $0 0 +2
+  StrCpy $INSTDIR $0
+  pop $0
+  
   !insertmacro SetRubyDir  
-  StrCpy $mongodir "C:\mongodb-2.0.1"
-  StrCpy $redisdir "C:\redis-2.4.0"
+  StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
+  StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 Function un.onInit
-  StrCpy $mongodir "C:\mongodb-2.0.1"
-  StrCpy $redisdir "C:\redis-2.4.0"
+  StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
+  StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 
 ; This function adds the passed directory to the path (only for installer and subprocesses)
