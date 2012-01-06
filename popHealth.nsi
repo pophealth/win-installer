@@ -436,8 +436,8 @@ Section "popHealth Web Application" sec_popHealth
   push "popHealth Web Server"
   push "Run the web server that allows access to the popHealth application."
   push "PT1M30S"
-  push "$rubydir\bin\bundle.bat"
-  push "exec rails server"
+  push "$rubydir\bin\ruby.exe"
+  push "script/rails server"
   push "$INSTDIR\popHealth"
   push "System"
   Call CreateTask
