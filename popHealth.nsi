@@ -386,9 +386,11 @@ Section "popHealth Web Application" sec_popHealth
   SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
   File /r bson_ext-1.5.1
   File /r json-1.4.6
+  File /r rcov-0.9.11
   SetOutPath $rubydir\lib\ruby\gems\1.9.1\specifications
   File bson_ext-1.5.1.gemspec
   File json-1.4.6.gemspec
+  File rcov-0.9.11.gemspec
   SetOutPath $INSTDIR\popHealth
   ExecWait 'bundle.bat install'
   
