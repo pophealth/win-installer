@@ -327,24 +327,6 @@ Section "Install Redis" sec_redis
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; popHealth Quality Measures
-;
-; This section copies the popHealth Quality Measures onto the system
-;-----------------------------------------------------------------------------
-Section "popHealth Quality Measures" sec_qualitymeasures
-
-  SectionIn RO
-  
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r measures
-
-  ; Install required gems
-  SetOutPath $INSTDIR\measures
-  ExecWait 'bundle.bat install'
-SectionEnd
-
-;-----------------------------------------------------------------------------
 ; popHealth Web Application
 ;
 ; This section copies the popHealth Web Application onto the system.  This also
@@ -418,6 +400,24 @@ Section "Install resque workers" sec_resque
   pop $0
   DetailPrint "Result of scheduling resque workers task: $0"
   SetRebootFlag true
+SectionEnd
+
+;-----------------------------------------------------------------------------
+; popHealth Quality Measures
+;
+; This section copies the popHealth Quality Measures onto the system
+;-----------------------------------------------------------------------------
+Section "popHealth Quality Measures" sec_qualitymeasures
+
+  SectionIn RO
+  
+  ; Set output path to the installation directory.
+  SetOutPath $INSTDIR
+  File /r measures
+
+  ; Install required gems
+  SetOutPath $INSTDIR\measures
+  ExecWait 'bundle.bat install'
 SectionEnd
 
 ;-----------------------------------------------------------------------------
