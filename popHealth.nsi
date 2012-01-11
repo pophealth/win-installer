@@ -32,14 +32,10 @@ Name "popHealth"
 !endif
 !if ${BUILDARCH} = 32
 OutFile "popHealth-i386.exe"
-!define jrubyinst "jruby_windowsjre_1_6_4.exe"
 !else
 OutFile "popHealth-x86_64.exe"
-!define jrubyinst "jruby_windows_x64_jre_1_6_4.exe"
 !endif
-
 !echo "BUILDARCH = ${BUILDARCH}"
-!echo "jrubyinst = ${jrubyinst}"
 
 ; The default installation directory
 ; TODO: change this to C:\projects for final version.
@@ -304,26 +300,6 @@ Section "Install Ruby DevKit" sec_rdevkit
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; JRuby
-;
-; Runs the JRuby install program and waits for it to finish.
-;-----------------------------------------------------------------------------
-Section "Install JRuby" sec_jruby
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 67531                  ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install JRuby.  You may accept the defaults on all the \
-      dialogs and click Next.  Click Finish on the last one.' /SD IDOK IDCANCEL skipjruby
-    File "${jrubyinst}"
-    ExecWait '"$INSTDIR\depinstallers\${jrubyinst}"'
-    Delete "$INSTDIR\depinstallers\${jrubyinst}"
-  skipjruby:
-SectionEnd
-
-;-----------------------------------------------------------------------------
 ; MongoDB
 ;
 ; Installs and registers mongodb to runs as a native Windows service.  Since
@@ -508,7 +484,6 @@ SectionEnd
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
   LangString DESC_sec_rdevkit   ${LANG_ENGLISH} "Ruby Development Kit"
-  LangString DESC_sec_jruby     ${LANG_ENGLISH} "JRuby script interpreter"
   LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
   LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "popHealth quality measure definitions"
@@ -527,7 +502,6 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_rdevkit} $(DESC_sec_rdevkit)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_jruby} $(DESC_sec_jruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
@@ -580,14 +554,6 @@ Section "Uninstall"
   ; Uninstall mongodb
   ExecWait '"$mongodir\bin\mongod" --remove'
   RMDIR /r "$mongodir"
-
-  ; Uninstall jruby -- Should we do a silent uninstall
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed JRuby.  Do you want us to uninstall it?' \
-      /SD IDYES IDNO skipjrubyuninst
-    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\4535-5096-5383-5182" "UninstallString"
-    ExecWait '$0'
-  skipjrubyuninst:
 
   ; Uninstall ruby devkit -- Should we do a silent uninstall?
   ; TODO: Did we really install it?
