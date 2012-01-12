@@ -1,0 +1,5 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\software\RubyInstaller\MRI\1.9.2]
+"PatchLevel"="290"
+"BuildPlatform"="i386-mingw32"

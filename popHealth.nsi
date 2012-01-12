@@ -16,6 +16,7 @@ SetCompressor /solid lzma
 !include "LogicLib.nsh"
 !include "MUI2.nsh"
 !include "scheduletask.nsh"
+!include "EnvVarUpdate.nsh"
 
 ;--------------------------------
 
@@ -211,14 +212,52 @@ Section "Install Ruby" sec_ruby
   
   ;Ruby not found
   installruby:	
+  SetOutPath $rubydir
+  File /r Ruby192\*.*
   SetOutPath $INSTDIR\depinstallers ; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install Ruby.  On the optional tasks dialog, select \
-    "Add Ruby executables to your PATH"; and "Associate .rb files with this Ruby installation" boxes.' /SD IDOK \
-    IDCANCEL rubydone
-  File "rubyinstaller-1.9.2-p290.exe"
-  ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"'
-  Delete "$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"
+  WriteRegStr HKLM "software\Classes\RubyFile\DefaultIcon" "" '$rubydir\bin\ruby.exe,0'
+  WriteRegStr HKLM "software\Classes\RubyFile\shell\open\command" "" '"$rubydir\bin\ruby.exe" "%1" %*'
+  WriteRegStr HKLM "software\Classes\RubyWFile\DefaultIcon" "" '$rubydir\bin\rubyw.exe,0'
+  WriteRegStr HKLM "software\Classes\RubyWFile\shell\open\command" "" '"$rubydir\bin\rubyw.exe" "%1" %*'
+  File "ruby.reg"
+  Exec '"$WINDIR\system32\reg.exe" IMPORT ruby.reg'
+  File "uninstall.reg"
+  Exec '"$WINDIR\system32\reg.exe" IMPORT uninstall.reg'
+  !if ${BUILDARCH} = 32
+    WriteRegStr HKLM "software\RubyInstaller\MRI\1.9.2" "InstallLocation" '$rubydir'
+	File "32bit.reg"
+	Exec '"$WINDIR\system32\reg.exe" IMPORT 32bit.reg'
+  !else
+    WriteRegStr HKLM "software\Wow6432Node\RubyInstaller\MRI\1.9.2" "InstallLocation" '$rubydir'
+	File "64bit.reg"
+	Exec '"$WINDIR\system32\reg.exe" IMPORT 64bit.reg'
+  !endif
+  
+  Push $0
+  
+  Push "PATH"
+  Push "A"
+  Push "HKLM"
+  Push "$rubydir\bin"
+  Call EnvVarUpdate
+  Pop $0
+    
+  Push "PATHEXT"
+  Push "A"
+  Push "HKLM"
+  Push ".RB;.RBW"
+  Call EnvVarUpdate
+  Pop $0
+  
+  Pop $0
+  
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "Inno Setup: App Path" '$rubydir'
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "InstallLocation" '$rubydir'
+  System::Call "advapi32::GetUserName(t .r0, *i ${NSIS_MAX_STRLEN} r1) i.r2"
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "Inno Setup: User" '$0'
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "DisplayIcon" '$rubydir\bin\ruby.exe'
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "UninstallString" '"$rubydir\unins000.exe"'
+  WriteRegStr HKCU "software\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" "QuietUninstallString" '"$rubydir\unins000.exe" /SILENT'
   
   ;Make sure ruby was installed
   !insertmacro CheckRubyInstalled rubydone 0
