@@ -125,7 +125,7 @@ REM Define functions
 rmdir %1 2>NUL
 if exist %1 (
   cd %1
-  git pull
+  git pull origin master
   cd ..
 ) else (
   git submodule update --init
