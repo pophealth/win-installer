@@ -634,6 +634,7 @@ Function .onInit
   StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 Function un.onInit
+  StrCpy $systemdrive $WINDIR 2
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
   StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
