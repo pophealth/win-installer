@@ -688,10 +688,10 @@ FunctionEnd
 
 Function ProxySettingsLeave
   ${NSD_GetState} $proxyUseProxyCheckbox $useProxy
-  ${NSD_GetText} $proxyServerText $proxyServer
-  ${NSD_GetText} $proxyPortText $proxyPort
   ;MessageBox MB_OK "You Entered:$\n  Use Proxy: $useProxy$\n  Server: $proxyServer$\n  Port: $proxyPort"
   ${If} $useProxy == 1
+    ${NSD_GetText} $proxyServerText $proxyServer
+    ${NSD_GetText} $proxyPortText $proxyPort
     ; This will permanently set the environment variable for future use of popHealth
     !insertmacro AddEnvVarToReg 'http_proxy' 'http://$proxyServer:$proxyPort/'
     !insertmacro AddEnvVarToReg 'https_proxy' 'http://$proxyServer:$proxyPort/'
