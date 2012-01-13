@@ -32,14 +32,10 @@ Name "popHealth"
 !endif
 !if ${BUILDARCH} = 32
 OutFile "popHealth-i386.exe"
-!define jrubyinst "jruby_windowsjre_1_6_4.exe"
 !else
 OutFile "popHealth-x86_64.exe"
-!define jrubyinst "jruby_windows_x64_jre_1_6_4.exe"
 !endif
-
 !echo "BUILDARCH = ${BUILDARCH}"
-!echo "jrubyinst = ${jrubyinst}"
 
 ; Request application privileges for Windows Vista
 RequestExecutionLevel admin
@@ -55,7 +51,12 @@ LicenseData license.txt
 
 ;--------------------------------
 ; Some useful defines
-!define env_allusers 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"';
+!define env_allusers 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"'
+!if ${BUILDARCH} = 32
+  !define ruby_key 'HKLM "software\RubyInstaller\MRI\1.9.2" "InstallLocation"'
+!else
+  !define ruby_key 'HKLM "software\Wow6432Node\RubyInstaller\MRI\1.9.2" "InstallLocation"'
+!endif
 
 ;--------------------------------
 ; Some useful macros
@@ -81,6 +82,18 @@ LicenseData license.txt
   !insertmacro SetInstallerEnvVar '${Name}' '${Value}'
 !macroend
 
+!macro SetRubyDir
+  StrCpy $rubydir "$systemdrive\Ruby192"
+  ReadRegStr $0 ${ruby_key}
+  StrCmp $0 "" +2
+  StrCpy $rubydir $0
+!macroend
+
+!macro CheckRubyInstalled Yes No
+  !insertmacro SetRubyDir
+  IfFileExists "$rubydir\bin\ruby.exe" ${Yes} ${No}
+!macroend
+
 ;--------------------------------
 ;Interface Settings
 
@@ -94,7 +107,6 @@ var systemdrive ;Set the primary drive letter for the system
 var rubydir    ; The root directory of the ruby install to use
 var mongodir   ; The root directory of the mongodb install
 var redisdir   ; The root directory of the redis install
-var gitdir     ; The root directory of the git install
 
 ;--------------------------------
 ; Pages
@@ -177,35 +189,6 @@ Section "Start Menu Shortcuts" sec_startmenu
   
 SectionEnd
 
-;-----------------------------------------------------------------------------
-; Git
-;
-; Runs the Git install program and waits for it to finish.
-; TODO: Need to record somehow whether we actually install this so that the
-;       uninstaller can remove it.
-;-----------------------------------------------------------------------------
-Section "Install Git" sec_git
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 54682                  ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install Git.  On the sixth dialog, select \
-      "Run Git from the Windows  Command Prompt". Just click "Next" on all other dialogs.' /SD IDOK IDCANCEL skipgit
-    File "Git-1.7.7-preview20111014.exe"
-    ExecWait '"$INSTDIR\depinstallers\Git-1.7.7-preview20111014.exe"'
-    Delete "$INSTDIR\depinstallers\Git-1.7.7-preview20111014.exe"
-  skipgit:
-
-  ; We need a git install.  If we don't find git where we expect, ask user
-  IfFileExists "$gitdir\cmd\git.cmd" gitdone 0
-    ; TODO: Need to prompt the user to tell us where git is installed.
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Git not found!"
-  gitdone:
-  Push "$gitdir\cmd"
-  Call AddToPath
-SectionEnd
 
 ;-----------------------------------------------------------------------------
 ; Ruby
@@ -219,20 +202,29 @@ Section "Install Ruby" sec_ruby
   SectionIn 1 3                  ; enabled in Full and Custom installs
   AddSize 18534                  ; additional size in kB above installer
 
+  ;Check if ruby exists
+  !insertmacro CheckRubyInstalled 0 installruby
+  
+  ;Ruby was found
+  MessageBox MB_ICONQUESTION|MB_YESNO "A current ruby installation was found.  Do you want to install it again?$\n$\n\
+      Current install location: $0" /SD IDNO IDNO rubydone
+  
+  ;Ruby not found
+  installruby:	
   SetOutPath $INSTDIR\depinstallers ; temporary directory
 
   MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install Ruby.  On the optional tasks dialog, select \
-      "Add Ruby executables to your PATH"; and "Associate .rb files with this Ruby installation" boxes.' /SD IDOK \
-      IDCANCEL skipruby
-    File "rubyinstaller-1.9.2-p290.exe"
-    ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"'
-    Delete "$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"
-  skipruby:
-
-  ; We need a ruby install.  If we don't find ruby where we expect, ask user
-  IfFileExists "$rubydir\bin\ruby.exe" rubydone 0
-    ; TODO Need to prompt the user to tell us where ruby is installed.
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Ruby not found!"
+    "Add Ruby executables to your PATH"; and "Associate .rb files with this Ruby installation" boxes.' /SD IDOK \
+    IDCANCEL rubydone
+  File "rubyinstaller-1.9.2-p290.exe"
+  ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"'
+  Delete "$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"
+  
+  ;Make sure ruby was installed
+  !insertmacro CheckRubyInstalled rubydone 0
+  MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL 'We could not verify that ruby was properly installed' \
+    IDRETRY installruby
+  
   rubydone:
   Push "$rubydir\bin"
   Call AddToPath
@@ -252,68 +244,6 @@ Section "Install Bundler" sec_bundler
   ExecWait '"$rubydir\bin\gem.bat" install bundler'
   IfErrors 0 +2
     MessageBox MB_ICONEXCLAMATION|MB_OK "Failed to install the bundler gem."
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; Ruby DevKit
-;
-; Unpacks the ruby development kit.  This component is required in order to
-; build native ruby gems on Windows.
-; TODO: If the required native gems are prebuilt and included in the installer
-;       than this component could be removed.
-;-----------------------------------------------------------------------------
-Section "Install Ruby DevKit" sec_rdevkit
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 145079                 ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install the Ruby DevKit. Please accept all defaults \
-      presented.' /SD IDOK IDCANCEL skiprdevkit
-    File "DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe"
-    ClearErrors
-    ExecWait '"$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe" -o$systemdrive\DevKit'
-    ; Change output directory to the DevKit directory
-    SetOutPath $systemdrive\DevKit
-    ; TODO: This presumes the user accepted the default when installing ruby.  The NSIS SearchPath command will not
-    ;       help because it searches the path the installer inherited.
-    ;       Even if ruby was added to the path during the earlier install, the popHealth installer is running with
-    ;       the old path.  Another option might be to add a RunOnce script to do this devkit config step
-    IfFileExists $systemdrive\Ruby192\bin\ruby.exe 0 rubynotfound
-      ExecWait "$systemdrive\Ruby192\bin\ruby dk.rb init"
-      IfErrors 0 +3
-        DetailPrint 'Failed to setup devkit.  Will install RunOnce task.'
-        Goto rubynotfound
-      ExecWait "$systemdrive\Ruby192\bin\ruby dk.rb install"
-      Goto donerdevkit
-    rubynotfound:
-      MessageBox MB_ICONEXCLAMATION|MB_OK 'Failed to find where ruby was installed'
-      ; TODO: Add RunOnce task here.
-      ; Fall through to clean up
-    donerdevkit:
-      Delete "$INSTDIR\depinstallers\DevKit-tdm-32-4.5.2-20110712-1620-sfx.exe"
-  skiprdevkit:
-    ClearErrors
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; JRuby
-;
-; Runs the JRuby install program and waits for it to finish.
-;-----------------------------------------------------------------------------
-Section "Install JRuby" sec_jruby
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-  AddSize 67531                  ; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install JRuby.  You may accept the defaults on all the \
-      dialogs and click Next.  Click Finish on the last one.' /SD IDOK IDCANCEL skipjruby
-    File "${jrubyinst}"
-    ExecWait '"$INSTDIR\depinstallers\${jrubyinst}"'
-    Delete "$INSTDIR\depinstallers\${jrubyinst}"
-  skipjruby:
 SectionEnd
 
 ;-----------------------------------------------------------------------------
@@ -373,38 +303,11 @@ Section "Install Redis" sec_redis
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; popHealth Quality Measures
-;
-; This section clones the github repository.  This approach requires us to
-; install git on the system.
-; TODO: When building the installer, pull the repo from github as a tar or zip
-;       file and distribute that.
-;-----------------------------------------------------------------------------
-Section "popHealth Quality Measures" sec_qualitymeasures
-
-  SectionIn RO
-  AddSize 5887        ; current size of cloned repo (in kB)
-  
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-
-  ; clone the quality measures repository
-  ExecWait 'git.cmd clone https://github.com/pophealth/measures.git'
-
-  ; Install required gems
-  SetOutPath $INSTDIR\measures
-  ExecWait 'bundle.bat install'
-SectionEnd
-
-;-----------------------------------------------------------------------------
 ; popHealth Web Application
 ;
-; This section clones the github repository.  This approach requires us to
-; install git on the system. This also installs a scheduled task with a boot
-; trigger that will start a web server so that the application can be accessed
-; when the system is booted.
-; TODO: When building the installer, pull the repo from github as a tar or zip
-;       file and distribute that.
+; This section copies the popHealth Web Application onto the system.  This also
+;installs a scheduled task with a boot trigger that will start a web server so
+; that the application can be accessed when the system is booted.
 ;-----------------------------------------------------------------------------
 Section "popHealth Web Application" sec_popHealth
 
@@ -413,15 +316,20 @@ Section "popHealth Web Application" sec_popHealth
 
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
+  File /r pophealth
 
-  ; clone popHealth web application repository
-  ExecWait 'git.cmd clone https://github.com/pophealth/popHealth.git'
-
-  ; Install required gems
+  ; Install required gems  
+  SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
+  File /r bson_ext-1.5.1
+  File /r json-1.4.6
+  File /r rcov-0.9.11
+  SetOutPath $rubydir\lib\ruby\gems\1.9.1\specifications
+  File bson_ext-1.5.1.gemspec
+  File json-1.4.6.gemspec
+  File rcov-0.9.11.gemspec
   SetOutPath $INSTDIR\popHealth
   ExecWait 'bundle.bat install'
-  ExecWait 'gem.bat install bson_ext -v 1.3.1'
-
+  
   ; Create admin user account
   ExecWait 'bundle.bat exec rake admin:create_admin_account'
 
@@ -429,8 +337,8 @@ Section "popHealth Web Application" sec_popHealth
   push "popHealth Web Server"
   push "Run the web server that allows access to the popHealth application."
   push "PT1M30S"
-  push "$rubydir\bin\bundle.bat"
-  push "exec rails server"
+  push "$rubydir\bin\ruby.exe"
+  push "script/rails server"
   push "$INSTDIR\popHealth"
   push "System"
   Call CreateTask
@@ -471,6 +379,24 @@ Section "Install resque workers" sec_resque
 SectionEnd
 
 ;-----------------------------------------------------------------------------
+; popHealth Quality Measures
+;
+; This section copies the popHealth Quality Measures onto the system
+;-----------------------------------------------------------------------------
+Section "popHealth Quality Measures" sec_qualitymeasures
+
+  SectionIn RO
+  
+  ; Set output path to the installation directory.
+  SetOutPath $INSTDIR
+  File /r measures
+
+  ; Install required gems
+  SetOutPath $INSTDIR\measures
+  ExecWait 'bundle.bat install'
+SectionEnd
+
+;-----------------------------------------------------------------------------
 ; Patient Records
 ;
 ; This section adds 500 random patient records to the mongo database so that
@@ -497,11 +423,8 @@ SectionEnd
   ;Language strings
   LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall popHealth"
   LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
-  LangString DESC_sec_git       ${LANG_ENGLISH} "Git revision control system"
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
-  LangString DESC_sec_rdevkit   ${LANG_ENGLISH} "Ruby Development Kit"
-  LangString DESC_sec_jruby     ${LANG_ENGLISH} "JRuby script interpreter"
   LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
   LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "popHealth quality measure definitions"
@@ -516,11 +439,8 @@ SectionEnd
   !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall} $(DESC_sec_uninstall)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu} $(DESC_sec_startmenu)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_git} $(DESC_sec_git)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_rdevkit} $(DESC_sec_rdevkit)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_jruby} $(DESC_sec_jruby)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
@@ -574,21 +494,6 @@ Section "Uninstall"
   ExecWait '"$mongodir\bin\mongod" --remove'
   RMDIR /r "$mongodir"
 
-  ; Uninstall jruby -- Should we do a silent uninstall
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed JRuby.  Do you want us to uninstall it?' \
-      /SD IDYES IDNO skipjrubyuninst
-    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\4535-5096-5383-5182" "UninstallString"
-    ExecWait '$0'
-  skipjrubyuninst:
-
-  ; Uninstall ruby devkit -- Should we do a silent uninstall?
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed the Ruby DevKit.  Do you want us to uninstall it?' \
-    /SD IDYES IDNO skiprdevkituninst
-    RMDIR /r "$systemdrive\DevKit"
-  skiprdevkituninst:
-
   ; Uninstall the Bundler gem
   ExecWait "gem.bat uninstall -x bundler"
 
@@ -600,14 +505,6 @@ Section "Uninstall"
         "UninstallString"
     ExecWait '$0'
   skiprubyuninst:
-
-  ; Uninstall git -- Should we do a silent uninstall
-  ; TODO: Did we really install it?
-  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed Git.  Do you want us to uninstall it?' \
-      /SD IDYES IDNO skipgituninst
-    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1" "UninstallString"
-    ExecWait '$0'
-  skipgituninst:
 
   ; Remove files and uninstaller
   Delete $INSTDIR\uninstall.exe
@@ -732,12 +629,12 @@ Function .onInit
   StrCpy $INSTDIR $0
   pop $0
   
-  StrCpy $rubydir "$systemdrive\Ruby192"
-  StrCpy $gitdir  "$systemdrive\Program Files\Git"
+  !insertmacro SetRubyDir  
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
   StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
 Function un.onInit
+  StrCpy $systemdrive $WINDIR 2
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
   StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
