@@ -688,19 +688,30 @@ FunctionEnd
 
 Function ProxySettingsLeave
   ${NSD_GetState} $proxyUseProxyCheckbox $useProxy
-  ;MessageBox MB_OK "You Entered:$\n  Use Proxy: $useProxy$\n  Server: $proxyServer$\n  Port: $proxyPort"
   ${If} $useProxy == 1
     ${NSD_GetText} $proxyServerText $proxyServer
     ${NSD_GetText} $proxyPortText $proxyPort
+    
+    ; Ensure that the proxy server is set
+    StrCmp $proxyServer '' 0 +3
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Proxy server cannot be blank!"
+      Abort
+    push $0
+    StrCpy $0 'http://$proxyServer'
+    
+    ; Append :port only if port is set
+    StrCmp $proxyPort '' +2
+      StrCpy $0 '$0:$proxyPort'
+
     ; This will permanently set the environment variable for future use of popHealth
-    !insertmacro AddEnvVarToReg 'http_proxy' 'http://$proxyServer:$proxyPort/'
-    !insertmacro AddEnvVarToReg 'https_proxy' 'http://$proxyServer:$proxyPort/'
+    !insertmacro AddEnvVarToReg 'http_proxy' $0
+    !insertmacro AddEnvVarToReg 'https_proxy' $0
 
     ; We will also need these environment variables defined for later install tasks
-    !insertmacro SetInstallerEnvVar 'http_proxy' 'http://$proxyServer:$proxyPort/'
-    !insertmacro SetInstallerEnvVar 'https_proxy' 'http://$proxyServer:$proxyPort/'
+    !insertmacro SetInstallerEnvVar 'http_proxy' $0
+    !insertmacro SetInstallerEnvVar 'https_proxy' $0
+    pop $0
   ${EndIf}
-  ;Abort
 FunctionEnd
 
 Function ProxySettingsUseProxyClick
