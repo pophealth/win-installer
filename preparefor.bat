@@ -42,18 +42,8 @@ if not "%1"=="" (
 
 echo Preparing to build a %myarch%-bit installer...
 
-REM We need unzip, makensis, and git on the path.  Check for 'em
-set unzipcmd=
+REM We need makensis on the path.  Check for it
 set makensiscmd=
-for %%e in (%PATHEXT%) do (
-  for %%x in (unzip%%e) do (
-    if not defined unzipcmd (set unzipcmd=%%~$PATH:x)
-  )
-)
-if "%unzipcmd%"=="" (
-  echo unzip command was not found on the path.  Please correct.
-  exit /b 1
-)
 for %%e in (%PATHEXT%) do (
   for %%x in (makensis%%e) do (
     if not defined makensiscmd (set makensiscmd=%%~$PATH:x)
@@ -89,7 +79,7 @@ echo Unpacking and preparing redis...
 set redisdir=redis-2.4.0
 if exist %redisdir% ( rd /s /q %redisdir% )
 mkdir %redisdir%
-"%unzipcmd%" .\redis-2.4.0-win32-win64.zip -d %redisdir%
+.\unzip.exe -o .\redis-2.4.0-win32-win64.zip -d %redisdir%
 REM Copy our slightly modified redis.conf file into place
 copy redis.conf %redisdir%\32bit
 copy redis.conf %redisdir%\64bit
@@ -108,7 +98,7 @@ if "%myarch%"=="32" (
   rd /s /q %redisdir%\64bit
 
   REM Unzip 32bit mongodb
-  "%unzipcmd%" .\mongodb-win32-i386-2.0.1.zip
+  .\unzip.exe -o .\mongodb-win32-i386-2.0.1.zip
   ren mongodb-win32-i386-2.0.1 %mongodbdir%
 ) else (
   echo doing 64bit specific stuff...
@@ -117,7 +107,7 @@ if "%myarch%"=="32" (
   rd /s /q %redisdir%\32bit
  
   REM Unzip 64bit mongodb
-  "%unzipcmd%" .\mongodb-win32-x86_64-2.0.1.zip
+  .\unzip.exe -o .\mongodb-win32-x86_64-2.0.1.zip
   ren mongodb-win32-x86_64-2.0.1 %mongodbdir%
 )
 
