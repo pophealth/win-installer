@@ -407,8 +407,8 @@ Section "Install resque workers" sec_resque
   push "popHealth Resque Workers"
   push "Run the resque workers for the popHealth application."
   push "PT45S"
-  push "$INSTDIR\popHealth\script\run-resque.bat"
-  push ""
+  push "$rubydir\bin\ruby.exe"
+  push '"$rubydir\bin\rake" resque:work'
   push "$INSTDIR\popHealth"
   push "Local Service"
   Call CreateTask
