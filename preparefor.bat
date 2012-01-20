@@ -81,6 +81,9 @@ REM ------
 REM These steps need to be done regardless of the architecture
 REM ------
 
+REM Autoupdate installer build
+start /WAIT /B "git pull"
+
 REM Unpack redis and prepare it accordingly.
 echo Unpacking and preparing redis...
 set redisdir=redis-2.4.0
