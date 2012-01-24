@@ -1,4 +1,4 @@
-@echo off
+REM @echo off
 setlocal
 
 REM ==========================================================================
@@ -42,18 +42,8 @@ if not "%1"=="" (
 
 echo Preparing to build a %myarch%-bit installer...
 
-REM We need unzip and makensis on the path.  Check for 'em
-set unzipcmd=
+REM We need makensis on the path.  Check for it
 set makensiscmd=
-for %%e in (%PATHEXT%) do (
-  for %%x in (unzip%%e) do (
-    if not defined unzipcmd (set unzipcmd=%%~$PATH:x)
-  )
-)
-if "%unzipcmd%"=="" (
-  echo unzip command was not found on the path.  Please correct.
-  exit /b 1
-)
 for %%e in (%PATHEXT%) do (
   for %%x in (makensis%%e) do (
     if not defined makensiscmd (set makensiscmd=%%~$PATH:x)
@@ -61,6 +51,15 @@ for %%e in (%PATHEXT%) do (
 )
 if "%makensiscmd%"=="" (
   echo makensis command was not found on the path.  Please correct.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
+  for %%x in (git%%e) do (
+    if not defined gitcmd (set gitcmd=%%~$PATH:x)
+  )
+)
+if "%gitcmd%"=="" (
+  echo git command was not found on the path.  Please correct.
   exit /b 1
 )
 
@@ -72,12 +71,15 @@ REM ------
 REM These steps need to be done regardless of the architecture
 REM ------
 
+REM Autoupdate installer build
+start /WAIT /B "git pull"
+
 REM Unpack redis and prepare it accordingly.
 echo Unpacking and preparing redis...
 set redisdir=redis-2.4.0
 if exist %redisdir% ( rd /s /q %redisdir% )
 mkdir %redisdir%
-"%unzipcmd%" .\redis-2.4.0-win32-win64.zip -d %redisdir%
+.\unzip.exe -o .\redis-2.4.0-win32-win64.zip -d %redisdir%
 REM Copy our slightly modified redis.conf file into place
 copy redis.conf %redisdir%\32bit
 copy redis.conf %redisdir%\64bit
@@ -96,7 +98,7 @@ if "%myarch%"=="32" (
   rd /s /q %redisdir%\64bit
 
   REM Unzip 32bit mongodb
-  "%unzipcmd%" .\mongodb-win32-i386-2.0.1.zip
+  .\unzip.exe -o .\mongodb-win32-i386-2.0.1.zip
   ren mongodb-win32-i386-2.0.1 %mongodbdir%
 ) else (
   echo doing 64bit specific stuff...
@@ -105,9 +107,29 @@ if "%myarch%"=="32" (
   rd /s /q %redisdir%\32bit
  
   REM Unzip 64bit mongodb
-  "%unzipcmd%" .\mongodb-win32-x86_64-2.0.1.zip
+  .\unzip.exe -o .\mongodb-win32-x86_64-2.0.1.zip
   ren mongodb-win32-x86_64-2.0.1 %mongodbdir%
 )
 
+REM Pull the latest repositories
+call:git measures
+call:git popHealth
+
 REM Run makensis to build installer
 "%makensiscmd%" /DBUILDARCH=%myarch% popHealth.nsi
+
+goto:eof
+REM Define functions
+:git
+rmdir %1 2>NUL
+if exist %1 (
+  cd %1
+  git pull origin master
+  cd ..
+) else (
+  git submodule update --init
+  cd %1
+  rmdir /s /q .git
+  cd ..
+)
+goto:eof
