@@ -1,0 +1,7 @@
+[submodule "measures"]
+	path = measures
+	url = https://github.com/pophealth/measures.git
+ 
+[submodule "popHealth"]
+	path = popHealth
+	url = https://github.com/pophealth/popHealth.git
