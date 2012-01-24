@@ -23,15 +23,21 @@ set myarch=32
 
 REM Check options provided to the script
 if not "%1"=="" (
-  if "%1"=="32" (set myarch=32
-  ) else (
-    if "%1"=="64" (set myarch=64
-    ) else (
-      echo Invalid option "%1" received.
-      echo Usage: %0 [32^|64]
-      exit /b 1
-    )
-  )
+    if "%1"=="all" (
+	  call %0 32
+	  call %0 64
+	  exit /B
+	) else (
+	  if "%1"=="32" (set myarch=32
+	  ) else (
+		if "%1"=="64" (set myarch=64
+		) else (
+		  echo Invalid option "%1" received.
+		  echo Usage: %0 [32^|64]
+		  exit /b 1
+		)
+	  )
+	)
 )
 
 echo Preparing to build a %myarch%-bit installer...
