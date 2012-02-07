@@ -1,0 +1,29 @@
+--- bson_ext/Rakefile.mitre	Fri Feb 03 16:00:52 2012
++++ bson_ext/Rakefile	Fri Feb 03 17:19:40 2012
+@@ -6,6 +6,7 @@ require 'rake'
+ require 'rake/testtask'
+ require 'rake/gempackagetask'
+ require 'rbconfig'
++require 'rake/extensiontask'
+ include Config
+ ENV['TEST_MODE'] = 'TRUE'
+ 
+@@ -13,6 +14,18 @@ task :java do
+   Rake::Task['build:java'].invoke
+   Rake::Task['test:ruby'].invoke
+ end
++
++# TLT: Add tasks for rake-compiler to be able to build native gem.
++bson_ext_spec = Gem::Specification.load('bson_ext.gemspec')
++Gem::PackageTask.new(bson_ext_spec) do |pkg|
++end
++Rake::ExtensionTask.new do |ext|
++  ext.name = 'cbson'                # name of the extension
++  ext.ext_dir = 'ext/cbson'         # location of extension files
++  ext.lib_dir = 'ext/bson_ext'      # put binaries into this folder
++  ext.gem_spec = bson_ext_spec      # specify which gem specification to use
++end
++# TLT: End of tasks added for popHealth
+ 
+ namespace :build do
+   desc "Build the java extensions."

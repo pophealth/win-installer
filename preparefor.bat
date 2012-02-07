@@ -20,6 +20,33 @@ REM Original Author: Tim Taylor <ttaylor@mitre.org>
 REM ==========================================================================
 
 set myarch=32
+set installer_dir=%CD%
+
+REM ====================
+REM Tag or branch names of projects to bundle with the installer.  The machine
+REM building the installer will need git, but clients won't any more.
+REM
+REM When it comes time to build an installer for a new version of popHealth,
+REM just update these and rebuild.
+REM ====================
+set pophealth_tag=v1.4.0
+set measures_tag=v1.4.0
+set qme_tag=v1.1.0
+
+REM ====================
+REM Information about native gems we need to build, and include in the
+REM installer.
+REM ====================
+REM nagive_gem_list is a semi-colon (;) separated list of the gems we need.
+REM For each gem, define a variable named gem_<gem_name>_info that contains
+REM the repo tag for the version we want and the git repo url separated by a
+REM ';'.  For example
+REM gem_bson_ext_info=1.5.1;https://github.com/mongodb/mongo-ruby-driver.git
+set native_gem_list=bson_ext
+set gem_bson_ext_info=1.5.1;https://github.com/mongodb/mongo-ruby-driver.git
+
+REM The directory to build native gems in
+set gem_build_dir=%TEMP%\popHealth_gems
 
 REM Check options provided to the script
 if not "%1"=="" (
@@ -42,8 +69,10 @@ if not "%1"=="" (
 
 echo Preparing to build a %myarch%-bit installer...
 
-REM We need unzip and makensis on the path.  Check for 'em
+REM We need unzip, tar, curl and makensis on the path.  Check for 'em
 set unzipcmd=
+set tarcmd=
+set curlcmd=
 set makensiscmd=
 for %%e in (%PATHEXT%) do (
   for %%x in (unzip%%e) do (
@@ -52,6 +81,27 @@ for %%e in (%PATHEXT%) do (
 )
 if "%unzipcmd%"=="" (
   echo unzip command was not found on the path.  Please correct.
+  echo If you've installed git, try adding [git_home]\bin to path.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
+  for %%x in (tar%%e) do (
+    if not defined tarcmd (set tarcmd=%%~$PATH:x)
+  )
+)
+if "%tarcmd%"=="" (
+  echo tar command was not found on the path.  Please correct.
+  echo If you've installed git, try adding [git_home]\bin to path.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
+  for %%x in (curl%%e) do (
+    if not defined curlcmd (set curlcmd=%%~$PATH:x)
+  )
+)
+if "%curlcmd%"=="" (
+  echo curl command was not found on the path.  Please correct.
+  echo If you've installed git, try adding [git_home]\bin to path.
   exit /b 1
 )
 for %%e in (%PATHEXT%) do (
@@ -72,15 +122,83 @@ REM ------
 REM These steps need to be done regardless of the architecture
 REM ------
 
+REM ------
+REM Fetch tarballs of the various pophealth repos we need.
+REM ------
+if not exist popHealth-%pophealth_tag%.tgz (
+  "%curlcmd%" -s https://nodeload.github.com/pophealth/popHealth/tarball/%pophealth_tag% > popHealth-%pophealth_tag%.tgz
+)
+if not exist measures-%measures_tag%.tgz (
+  "%curlcmd%" -s https://nodeload.github.com/pophealth/measures/tarball/%measures_tag% > measures-%measures_tag%.tgz
+)
+
+REM Unpack popHealth and prepare it accordingly.
+echo Unpacking and preparing popHealth...
+if exist popHealth ( rd /s /q popHealth )
+mkdir popHealth
+"%tarcmd%" --strip-components=1 -C popHealth -xf .\popHealth-%pophealth_tag%.tgz
+
+REM Unpack measures and prepare it accordingly.
+echo Unpacking and preparing measures...
+if exist measures ( rd /s /q measures )
+mkdir measures
+"%tarcmd%" --strip-components=1 -C measures -xf .\measures-%measures_tag%.tgz
+
+REM ------
+REM Build all the native gems we need to include.
+REM ------
+echo Building all the native gems required...
+if exist binary_gems ( rd /s /q binary_gems )
+mkdir binary_gems
+if not exist %gem_build_dir% (mkdir %gem_build_dir%)
+for %%g in (%native_gem_list%) do (
+  for /f "tokens=1,2 delims=;" %%t in ('cmd /v:on /c @echo !gem_%%g_info!') do (
+    pushd %gem_build_dir%
+    echo Gem: %%g tag %%t at %%u
+    if not exist %%g (
+      echo Cloning for the first time
+      git.exe clone %%u %%g
+    ) else (
+      echo Updating existing repo for %%g
+      cd %%g
+      git.exe fetch origin
+      git.exe checkout -f master
+    )
+    git.exe checkout -q -B mitre tags/%%t
+
+    REM If we have a patch file required to build native gem, apply it
+    if exist %installer_dir%\%%g.patch (
+      echo Applying MITRE custom patch
+      patch -p1 -t -F 0 -b -z .mitre < %installer_dir%\%%g.patch
+if ERRORLEVEL 0 (
+  echo patch succeeded.
+) else (
+  echo patch failed
+)
+    )
+
+    REM prepare for building binary gem by removing package dir
+    if exist pkg (del pkg\*.gem)
+
+    REM Build the platform specific binary gem
+    rake native gem > nul 2> nul
+
+    popd
+
+    REM Copy the compiled gem to the install directory
+    move %gem_build_dir%\%%g\pkg\%%g-*-x86-mingw32.gem binary_gems
+  )
+)
+
 REM Unpack redis and prepare it accordingly.
 echo Unpacking and preparing redis...
 set redisdir=redis-2.4.0
 if exist %redisdir% ( rd /s /q %redisdir% )
 mkdir %redisdir%
-"%unzipcmd%" .\redis-2.4.0-win32-win64.zip -d %redisdir%
+"%unzipcmd%" .\redis-2.4.0-win32-win64.zip -d %redisdir% > nul
 REM Copy our slightly modified redis.conf file into place
-copy redis.conf %redisdir%\32bit
-copy redis.conf %redisdir%\64bit
+copy redis.conf %redisdir%\32bit > nul
+copy redis.conf %redisdir%\64bit > nul
 REM Need to package an empty log file for redis
 echo Empty log for install > %redisdir%\redis_log.txt
 REM Create database directory
@@ -96,7 +214,7 @@ if "%myarch%"=="32" (
   rd /s /q %redisdir%\64bit
 
   REM Unzip 32bit mongodb
-  "%unzipcmd%" .\mongodb-win32-i386-2.0.1.zip
+  "%unzipcmd%" .\mongodb-win32-i386-2.0.1.zip > nul
   ren mongodb-win32-i386-2.0.1 %mongodbdir%
 ) else (
   echo doing 64bit specific stuff...

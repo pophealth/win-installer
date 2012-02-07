@@ -37,6 +37,14 @@ OutFile "popHealth-x86_64.exe"
 !endif
 !echo "BUILDARCH = ${BUILDARCH}"
 
+; The default installation directory
+; TODO: change this to $systemdrive\projects for final version.
+InstallDir $systemdrive\proj\popHealth
+
+; Registry key to check for directory (so if you install again, it will
+; overwrite the old one automatically)
+InstallDirRegKey HKLM "Software\popHealth" "Install_Dir"
+
 ; Request application privileges for Windows Vista
 RequestExecutionLevel admin
 
@@ -219,12 +227,12 @@ Section "Install Ruby" sec_ruby
   File "rubyinstaller-1.9.2-p290.exe"
   ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"'
   Delete "$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"
-  
+
   ;Make sure ruby was installed
   !insertmacro CheckRubyInstalled rubydone 0
   MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL 'We could not verify that ruby was properly installed' \
-    IDRETRY installruby
-  
+  IDRETRY installruby
+
   rubydone:
   Push "$rubydir\bin"
   Call AddToPath
@@ -305,9 +313,9 @@ SectionEnd
 ;-----------------------------------------------------------------------------
 ; popHealth Web Application
 ;
-; This section copies the popHealth Web Application onto the system.  This also
-;installs a scheduled task with a boot trigger that will start a web server so
-; that the application can be accessed when the system is booted.
+; This section copies the popHealth Web Application onto the system.  This
+; also installs a scheduled task with a boot trigger that will start a web
+; server so that the application can be accessed when the system is booted.
 ;-----------------------------------------------------------------------------
 Section "popHealth Web Application" sec_popHealth
 
@@ -318,7 +326,7 @@ Section "popHealth Web Application" sec_popHealth
   SetOutPath $INSTDIR
   File /r pophealth
 
-  ; Install required gems  
+  ; Install required gems
   SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
   File /r bson_ext-1.5.1
   File /r json-1.4.6
@@ -329,7 +337,7 @@ Section "popHealth Web Application" sec_popHealth
   File rcov-0.9.11.gemspec
   SetOutPath $INSTDIR\popHealth
   ExecWait 'bundle.bat install'
-  
+
   ; Create admin user account
   ExecWait 'bundle.bat exec rake admin:create_admin_account'
 
@@ -386,7 +394,7 @@ SectionEnd
 Section "popHealth Quality Measures" sec_qualitymeasures
 
   SectionIn RO
-  
+
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
   File /r measures
@@ -616,23 +624,12 @@ FunctionEnd
 ; needed variables
 Function .onInit
   StrCpy $systemdrive $WINDIR 2
-  
-  ; The default installation directory
-  ; TODO: change this to $systemdrive\projects for final version.
-  StrCpy $INSTDIR "$systemdrive\proj\popHealth\"
-  
-  ; Registry key to check for directory (so if you install again, it will 
-  ; overwrite the old one automatically)
-  push $0
-  ReadRegStr $0 HKLM "Software\popHealth" "Install_Dir"
-  IfFileExists $0 0 +2
-  StrCpy $INSTDIR $0
-  pop $0
-  
-  !insertmacro SetRubyDir  
+
+  !insertmacro SetRubyDir
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
   StrCpy $redisdir "$systemdrive\redis-2.4.0"
 FunctionEnd
+
 Function un.onInit
   StrCpy $systemdrive $WINDIR 2
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
