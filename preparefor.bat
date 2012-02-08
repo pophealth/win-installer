@@ -30,7 +30,8 @@ REM When it comes time to build an installer for a new version of popHealth,
 REM just update these and rebuild.
 REM ====================
 set pophealth_tag=v1.4.0
-set measures_tag=v1.4.1
+rem set measures_tag=v1.4.1
+set measures_tag=install_test_2
 set qme_tag=v1.1.0
 
 REM ====================
@@ -70,10 +71,11 @@ if not "%1"=="" (
 
 echo Preparing to build a %myarch%-bit installer...
 
-REM We need unzip, tar, curl and makensis on the path.  Check for 'em
+REM We need unzip, tar, curl, grep and makensis on the path.  Check for 'em
 set unzipcmd=
 set tarcmd=
 set curlcmd=
+set grepcmd=
 set makensiscmd=
 for %%e in (%PATHEXT%) do (
   for %%x in (unzip%%e) do (
@@ -106,12 +108,30 @@ if "%curlcmd%"=="" (
   exit /b 1
 )
 for %%e in (%PATHEXT%) do (
+  for %%x in (grep%%e) do (
+    if not defined grepcmd (set grepcmd=%%~$PATH:x)
+  )
+)
+if "%grepcmd%"=="" (
+  echo grep command was not found on the path.  Please correct.
+  echo If you've installed git, try adding [git_home]\bin to path.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
   for %%x in (makensis%%e) do (
     if not defined makensiscmd (set makensiscmd=%%~$PATH:x)
   )
 )
 if "%makensiscmd%"=="" (
   echo makensis command was not found on the path.  Please correct.
+  exit /b 1
+)
+
+REM Check and make sure the rake-compiler gem is installed.
+gem list --local | grep -q rake-compiler
+if ERRORLEVEL 1 (
+  echo The rake-compiler gem is not installed.  Please run the command:
+  echo   gem install rake-compiler
   exit /b 1
 )
 
