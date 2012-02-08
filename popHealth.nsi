@@ -88,9 +88,11 @@ LicenseData license.txt
 
 !macro SetRubyDir
   StrCpy $rubydir "$systemdrive\Ruby192"
+  push $0
   ReadRegStr $0 ${ruby_key}
   StrCmp $0 "" +2
   StrCpy $rubydir $0
+  pop $0
 !macroend
 
 !macro CheckRubyInstalled Yes No
