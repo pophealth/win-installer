@@ -30,7 +30,7 @@ REM When it comes time to build an installer for a new version of popHealth,
 REM just update these and rebuild.
 REM ====================
 set pophealth_tag=v1.4.0
-set measures_tag=v1.4.0
+set measures_tag=v1.4.1
 set qme_tag=v1.1.0
 
 REM ====================
@@ -42,8 +42,9 @@ REM For each gem, define a variable named gem_<gem_name>_info that contains
 REM the repo tag for the version we want and the git repo url separated by a
 REM ';'.  For example
 REM gem_bson_ext_info=1.5.1;https://github.com/mongodb/mongo-ruby-driver.git
-set native_gem_list=bson_ext
+set native_gem_list=bson_ext;json
 set gem_bson_ext_info=1.5.1;https://github.com/mongodb/mongo-ruby-driver.git
+set gem_json_info=v1.4.6;https://github.com/flori/json.git
 
 REM The directory to build native gems in
 set gem_build_dir=%TEMP%\popHealth_gems
@@ -114,6 +115,28 @@ if "%makensiscmd%"=="" (
   exit /b 1
 )
 
+REM We need a sane development environment to build native gems.  Look for
+REM a compiler on the path, and define environment variables the ruby devkit
+REM sets up.
+set gcccmd=
+for %%e in (%PATHEXT%) do (
+  for %%x in (gcc%%e) do (
+    if not defined gcccmd (set gcccmd=%%~$PATH:x)
+  )
+)
+if "%gcccmd%"=="" (
+  echo Development tools were not found on the path.
+  set /P RI_DEVKIT="Enter path to ruby devkit home: "
+)
+if not exist %RI_DEVKIT%\mingw\bin\gcc.exe (
+  echo %RI_DEVKIT% doesn't appear to contain the mingw tools.
+  exit /b 1
+)
+path=%RI_DEVKIT%\bin;%RI_DEVKIT%\mingw\bin;%path%
+set CC=gcc
+set CPP=cpp
+set CXX=g++
+
 REM ==========================================================================
 REM Let's get to work!
 REM ==========================================================================
@@ -158,6 +181,7 @@ for %%g in (%native_gem_list%) do (
     if not exist %%g (
       echo Cloning for the first time
       git.exe clone %%u %%g
+      cd %%g
     ) else (
       echo Updating existing repo for %%g
       cd %%g
@@ -170,18 +194,15 @@ for %%g in (%native_gem_list%) do (
     if exist %installer_dir%\%%g.patch (
       echo Applying MITRE custom patch
       patch -p1 -t -F 0 -b -z .mitre < %installer_dir%\%%g.patch
-if ERRORLEVEL 0 (
-  echo patch succeeded.
-) else (
-  echo patch failed
-)
     )
 
     REM prepare for building binary gem by removing package dir
-    if exist pkg (del pkg\*.gem)
+    if exist pkg (
+      if exist pkg\*.gem ( del pkg\*.gem )
+    )
 
     REM Build the platform specific binary gem
-    rake native gem > nul 2> nul
+    call rake.bat native gem > nul 2> nul
 
     popd
 

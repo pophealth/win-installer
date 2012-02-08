@@ -37,10 +37,6 @@ OutFile "popHealth-x86_64.exe"
 !endif
 !echo "BUILDARCH = ${BUILDARCH}"
 
-; The default installation directory
-; TODO: change this to $systemdrive\projects for final version.
-InstallDir $systemdrive\proj\popHealth
-
 ; Registry key to check for directory (so if you install again, it will
 ; overwrite the old one automatically)
 InstallDirRegKey HKLM "Software\popHealth" "Install_Dir"
@@ -326,15 +322,13 @@ Section "popHealth Web Application" sec_popHealth
   SetOutPath $INSTDIR
   File /r pophealth
 
-  ; Install required gems
-  SetOutPath $rubydir\lib\ruby\gems\1.9.1\gems
-  File /r bson_ext-1.5.1
-  File /r json-1.4.6
-  File /r rcov-0.9.11
-  SetOutPath $rubydir\lib\ruby\gems\1.9.1\specifications
-  File bson_ext-1.5.1.gemspec
-  File json-1.4.6.gemspec
-  File rcov-0.9.11.gemspec
+  ; Install required native gems
+  SetOutPath $INSTDIR\depinstallers ; temporary directory
+  File /r binary_gems
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
+  RMDIR /r $INSTDIR\depinstallers\binary_gems
+
   SetOutPath $INSTDIR\popHealth
   ExecWait 'bundle.bat install'
 
@@ -401,7 +395,7 @@ Section "popHealth Quality Measures" sec_qualitymeasures
 
   ; Install required gems
   SetOutPath $INSTDIR\measures
-  ExecWait 'bundle.bat install'
+  ExecWait 'bundle.bat install --without="test build"'
 SectionEnd
 
 ;-----------------------------------------------------------------------------
@@ -624,6 +618,7 @@ FunctionEnd
 ; needed variables
 Function .onInit
   StrCpy $systemdrive $WINDIR 2
+  StrCpy $INSTDIR "$systemdrive\proj\popHealth"
 
   !insertmacro SetRubyDir
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"
