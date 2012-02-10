@@ -30,8 +30,7 @@ REM When it comes time to build an installer for a new version of popHealth,
 REM just update these and rebuild.
 REM ====================
 set pophealth_tag=v1.4.0
-rem set measures_tag=v1.4.1
-set measures_tag=install_test_2
+set measures_tag=v1.4.1
 set qme_tag=v1.1.0
 
 REM ====================
