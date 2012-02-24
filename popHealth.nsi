@@ -25,15 +25,20 @@ SetCompressor /solid lzma
 ; The name of the installer
 Name "popHealth"
 
+; Make sure the installer version number is defined
+!ifndef INSTALLER_VER
+  !error "Must provide installer version. i.e. /DINSTALLER_VER=<ver_num>"
+!endif
+
 ; The file to write
 ;OutFile "popHealth-i386.exe"
 !ifndef BUILDARCH
   !define BUILDARCH 32
 !endif
 !if ${BUILDARCH} = 32
-OutFile "popHealth-i386.exe"
+OutFile "popHealth-${INSTALLER_VER}-i386.exe"
 !else
-OutFile "popHealth-x86_64.exe"
+OutFile "popHealth-${INSTALLER_VER}-x86_64.exe"
 !endif
 !echo "BUILDARCH = ${BUILDARCH}"
 

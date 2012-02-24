@@ -19,6 +19,10 @@ REM
 REM Original Author: Tim Taylor <ttaylor@mitre.org>
 REM ==========================================================================
 
+REM Specify the version number of the installer.  This number will be used in
+REM forming the filenames of the installer executables.
+set installer_ver=1.4.1
+
 set myarch=32
 set installer_dir=%CD%
 
@@ -268,4 +272,4 @@ if "%myarch%"=="32" (
 )
 
 REM Run makensis to build installer
-"%makensiscmd%" /DBUILDARCH=%myarch% popHealth.nsi
+"%makensiscmd%" /DBUILDARCH=%myarch% /DINSTALLER_VER=%installer_ver% popHealth.nsi
