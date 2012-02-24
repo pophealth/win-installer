@@ -29,9 +29,9 @@ REM
 REM When it comes time to build an installer for a new version of popHealth,
 REM just update these and rebuild.
 REM ====================
-set pophealth_tag=v1.4.0
+set pophealth_tag=v1.4.1
 set measures_tag=v1.4.1
-set qme_tag=v1.1.0
+set qme_tag=v1.1.1
 
 REM ====================
 REM Information about native gems we need to build, and include in the
