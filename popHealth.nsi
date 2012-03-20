@@ -105,6 +105,15 @@ LicenseData license.txt
   IfFileExists "$rubydir\bin\ruby.exe" ${Yes} ${No}
 !macroend
 
+; Usage:
+; ${Trim} $trimmedString $originalString
+!define Trim "!insertmacro Trim"
+!macro Trim ResultVar String
+  Push "${String}"
+  Call Trim
+  Pop "${ResultVar}"
+!macroend
+
 ;--------------------------------
 ;Interface Settings
 
@@ -533,6 +542,43 @@ SectionEnd
 ; UTILITY FUNCTIONS
 ;=============================================================================
 
+; Trim
+;   Removes leading & trailing whitespace from a string
+; Usave:
+;   Push
+;   Call Trim
+;   Pop
+Function Trim
+  Exch $R1 ; Original string
+  Push $R2
+
+Loop:
+  StrCpy $R2 "$R1" 1
+  StrCmp "$R2" " " TrimLeft
+  StrCmp "$R2" "$\r" TrimLeft
+  StrCmp "$R2" "$\n" TrimLeft
+  StrCmp "$R2" "$\t" TrimLeft
+  Goto Loop2
+TrimLeft:
+  StrCpy $R1 "$R1" "" 1
+  Goto Loop
+
+Loop2:
+  StrCpy $R2 "$R1" 1 -1
+  StrCmp "$R2" " " TrimRight
+  StrCmp "$R2" "$\r" TrimRight
+  StrCmp "$R2" "$\n" TrimRight
+  StrCmp "$R2" "$\t" TrimRight
+  Goto Done
+TrimRight:
+  StrCpy $R1 "$R1" -1
+  Goto Loop2
+
+Done:
+  Pop $R2
+  Exch $R1
+FunctionEnd
+
 ;--------------------------------
 ; Functions for Custom pages
 
@@ -551,6 +597,7 @@ var hwnd
 var useProxy
 var proxyServer
 var proxyPort
+var tmp
 
 ;-------------------
 ; Collect proxy info
@@ -588,8 +635,10 @@ FunctionEnd
 Function ProxySettingsLeave
   ${NSD_GetState} $proxyUseProxyCheckbox $useProxy
   ${If} $useProxy == 1
-    ${NSD_GetText} $proxyServerText $proxyServer
-    ${NSD_GetText} $proxyPortText $proxyPort
+    ${NSD_GetText} $proxyServerText $tmp
+    ${Trim} $proxyServer $tmp
+    ${NSD_GetText} $proxyPortText $tmp
+    ${Trim} $proxyPort $tmp
     
     ; Ensure that the proxy server is set
     StrCmp $proxyServer '' 0 +3
