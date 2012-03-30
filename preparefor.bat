@@ -36,6 +36,7 @@ REM ====================
 set pophealth_tag=v1.4.1
 set measures_tag=v1.4.1
 set qme_tag=v1.1.1
+set patient-importer_tag=v0.2
 
 REM ====================
 REM Information about native gems we need to build, and include in the
@@ -177,6 +178,9 @@ if not exist popHealth-%pophealth_tag%.tgz (
 if not exist measures-%measures_tag%.tgz (
   "%curlcmd%" -s https://nodeload.github.com/pophealth/measures/tarball/%measures_tag% > measures-%measures_tag%.tgz
 )
+if not exist patient-importer-%patient-importer_tag%.tgz (
+  "%curlcmd%" -s https://nodeload.github.com/pophealth/patient-importer/tarball/%patient-importer_tag% > patient-importer-%patient-importer_tag%.tgz
+)
 
 REM Unpack popHealth and prepare it accordingly.
 echo Unpacking and preparing popHealth...
@@ -189,6 +193,24 @@ echo Unpacking and preparing measures...
 if exist measures ( rd /s /q measures )
 mkdir measures
 "%tarcmd%" --strip-components=1 -C measures -xf .\measures-%measures_tag%.tgz
+
+REM Unpack patient-importer and prepare it accordingly.
+echo Unpacking and preparing patient-importer...
+if exist patient-importer ( rd /s /q patient-importer )
+mkdir patient-importer
+"%tarcmd%" --strip-components=1 -C patient-importer -xf .\patient-importer-%patient-importer_tag%.tgz > nul 2> nul
+REM Don't want the JRE versions included in the patient-importer repo
+pushd patient-importer
+if exist jre32_6u24 ( rd /s /q jre32_6u24 )
+if exist jre1.6.0_31 ( rd /s /q jre1.6.0_31 )
+rm .gitignore
+rm start_importer.sh
+REM Move lib subdir up a level and delete rest of source
+move source/lib .
+rd /s /q source
+REM Modify the startup batch file to reflect new lib location
+sed -i -e 's/^jre32_6u24\\\\bin\\\\//' -e 's/source\\\\//g' start_importer.bat > nul 2> nul
+popd
 
 REM ------
 REM Build all the native gems we need to include.

@@ -251,6 +251,38 @@ Section "Install Ruby" sec_ruby
 SectionEnd
 
 ;-----------------------------------------------------------------------------
+; Java JRE
+;
+; Runs the Java JRE install program and waits for it to finish.
+; TODO: Should detect if a jvm is already installed.
+; TODO: Should record somehow if we actually install this so that the
+;       uninstaller can remove it.
+;-----------------------------------------------------------------------------
+Section "Install Java JRE" sec_java
+
+  SectionIn 1 3			; enabled in Full and Custom installs
+  AddSize 75250			; additional size in kB above installer
+
+  SetOutPath $INSTDIR\depinstallers	; temporary directory
+
+  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install a Java interpreter.' \
+    /SD IDOK IDCANCEL javadone
+
+  Var /GLOBAL jre_installer_name
+  !if ${BUILDARCH} = 32
+    StrCpy $jre_installer_name "jre-7u3-windows-i586.exe"
+    File "jre-7u3-windows-i586.exe"
+  !else
+    StrCpy $jre_installer_name "jre-7u3-windows-x64.exe"
+    File "jre-7u3-windows-x64.exe"
+  !endif
+  ExecWait '"$INSTDIR\depinstallers\$jre_installer_name"'
+  Delete "$INSTDIR\depinstallers\$jre_installer_name"
+
+  javadone:
+SectionEnd
+
+;-----------------------------------------------------------------------------
 ; Bundler
 ;
 ; Installs the bundler gem for user later in the install.
@@ -415,6 +447,26 @@ Section "popHealth Quality Measures" sec_qualitymeasures
 SectionEnd
 
 ;-----------------------------------------------------------------------------
+; popHealth Patient Importer
+;
+; This section copies the popHealth patient importer client onto the system
+;-----------------------------------------------------------------------------
+Section "popHealth Patient Importer" sec_patientimporter
+
+  SectionIn RO
+
+  ; Set output path to the installation directory.
+  SetOutPath $INSTDIR
+  File /r patient-importer
+
+  ; Install a Start Menu item for the client.
+  SetOutPath $INSTDIR\patient-importer
+  CreateShortCut "$SMPROGRAMS\popHealth\importer.lnk" \
+    "$INSTDIR\patient-importer\start_importer.bat" "" "" "" \
+    SW_SHOWMINIMIZED ALT|CONTROL|SHIFT|F5 "popHealth Patient Importer Utility"
+SectionEnd
+
+;-----------------------------------------------------------------------------
 ; Patient Records
 ;
 ; This section adds 500 random patient records to the mongo database so that
@@ -442,12 +494,14 @@ SectionEnd
   LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall popHealth"
   LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
+  LangString DESC_sec_java	${LANG_ENGLISH} "Java runtime environment"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
   LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
   LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "popHealth quality measure definitions"
   LangString DESC_sec_popHealth ${LANG_ENGLISH} "popHealth web application"
   LangString DESC_sec_resque    ${LANG_ENGLISH} "popHealth resque workers"
+  LangString DESC_sec_patientimporter ${LANG_ENGLISH} "popHealth patient importer"
   LangString DESC_sec_samplepatients ${LANG_ENGLISH} "Generates 500 sample patient records"
 
   LangString ProxyPage_Title    ${LANG_ENGLISH} "Proxy Server Settings"
@@ -458,12 +512,14 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall} $(DESC_sec_uninstall)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu} $(DESC_sec_startmenu)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_java} $(DESC_sec_java)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_popHealth} $(DESC_sec_popHealth)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque} $(DESC_sec_resque)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_patientimporter} $(DESC_sec_patientimporter)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients} $(DESC_sec_samplepatients)
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -514,6 +570,15 @@ Section "Uninstall"
 
   ; Uninstall the Bundler gem
   ExecWait "gem.bat uninstall -x bundler"
+
+  ; Uninstall Java JRE
+  ; TODO: Did we really installer it?
+  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed Java.  Do you want us to uninstall it?' \
+      /SD IDYES IDNO skipjavauninst
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{26A24AE4-039D-4CA4-87B4-2F83217003FF}" \
+      "UninstallString"
+    ExecWait '$0'
+  skipjavauninst:
 
   ; Uninstall ruby -- Should we do a silent uninstall
   ; TODO: Did we really install it?
