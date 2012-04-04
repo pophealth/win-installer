@@ -177,6 +177,9 @@ Function CreateTaskV1
   ; ITask->SetParameters()
   System::Call '$R2->34(w r4)'
 
+  ; ITask->SetMaxRunTime()
+  System::Call '$R2->42(i -1)'
+
   ; ITask->CreateTrigger(trindex, ITaskTrigger)
   System::Call '$R2->3(*i .R4, *i .R5)'
 
@@ -185,10 +188,10 @@ Function CreateTaskV1
                     &i2 2011, &i2 12, &i2 12, \
                     &i2 0, &i2 0, &i2 0, \
                     &i2 0, &i2 0, \
-                    i 0, i 0, \
-                    i 0, \
-                    i 6, \
-                    &i2 0, &i2 0, &i2 0, &i2 0, &i2 0) i.s'
+                    &i4 0, &i4 0, \
+                    &i4 0, \
+                    &i4 6, \
+                    &i2 0, &i2 0, &i2 0, &i2 0, &i2 0, &i2 0) i.s'
   Pop $R6
 
   ; ITaskTrigger->SetTrigger
