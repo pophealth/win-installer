@@ -26,8 +26,6 @@ SetCompressor /solid lzma
 !ifndef PRODUCT_NAME
   !error "Must provide the name of the product. i.e. /DPRODUCT_NAME=[popHealth|cypress]"
 !endif
-; The name of the installer
-Name "${PRODUCT_NAME}"
 
 ; Make sure the installer version number is defined
 !ifndef INSTALLER_VER
@@ -79,16 +77,21 @@ LicenseData license.txt
 ; NB - the two apps use different naming conventions, would probably
 ; be worth fixing
 !if ${PRODUCT_NAME} == 'cypress'
+  !define product_label 'Cypress'
   !define db_name 'cypress_development'
   !define webserver_port 3000
   !define mode 'development'
 !else
   ; at least as of v1.4.1, popHealth does not run properly in production mode
   ; so we install development
+  !define product_label 'popHealth'
   !define db_name 'pophealth-development'
   !define webserver_port 3000
   !define mode 'development'
 !endif
+
+; The name of the installer
+Name "${product_label}"
 
 ;--------------------------------
 ; Some useful macros
@@ -200,13 +203,13 @@ Section "Create Uninstaller" sec_uninstall
   SetOutPath $INSTDIR
 
   ; Write the installation path into the registry
-  WriteRegStr HKLM SOFTWARE\${PRODUCT_NAME} "Install_Dir" "$INSTDIR"
+  WriteRegStr HKLM SOFTWARE\${product_label} "Install_Dir" "$INSTDIR"
   
   ; Write the uninstall keys for Windows
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayName" "${PRODUCT_NAME}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoRepair" 1
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "DisplayName" "${product_label}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "NoRepair" 1
   WriteUninstaller "uninstall.exe"
   
 SectionEnd
@@ -224,11 +227,11 @@ Section "Start Menu Shortcuts" sec_startmenu
   SetOutPath $INSTDIR
 
   ; Create an Internet shortcut for the web app
-  WriteINIStr "$INSTDIR\${PRODUCT_NAME}.URL" "InternetShortcut" "URL" "http://localhost:${webserver_port}/"
+  WriteINIStr "$INSTDIR\${product_label}.URL" "InternetShortcut" "URL" "http://localhost:${webserver_port}/"
 
-  CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.URL" "" "" ""
+  CreateDirectory "$SMPROGRAMS\${product_label}"
+  CreateShortCut "$SMPROGRAMS\${product_label}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+  CreateShortCut "$SMPROGRAMS\${product_label}\${product_label}.lnk" "$INSTDIR\${product_label}.URL" "" "" ""
   
 SectionEnd
 
@@ -328,8 +331,12 @@ Section "Install Redis" sec_redis
 
   File /r redis-2.4.0\*.*
 
+  SetOutPath "$redisdir\${BUILDARCH}bit"
+  ; start up redis so that the initial evaluation of measures can be performed
+  ExecShell "open" "redis-server.exe" "redis.conf" SW_HIDE
+
   ; Install a scheduled task to start redis on system boot
-  push "${PRODUCT_NAME} Redis Server"
+  push "${product_label} Redis Server"
   push "Run the redis server at startup."
   push "PT15S"
   push "$redisdir\${BUILDARCH}bit\redis-server.exe"
@@ -349,7 +356,7 @@ SectionEnd
 ; also installs a scheduled task with a boot trigger that will start a web
 ; server so that the application can be accessed when the system is booted.
 ;-----------------------------------------------------------------------------
-Section "${PRODUCT_NAME} Web Application" sec_product
+Section "${product_label} Web Application" sec_product
 
   SectionIn RO
   AddSize ${SIZE_TO_ADD}        ; current size of cloned repo (in kB)
@@ -377,8 +384,8 @@ Section "${PRODUCT_NAME} Web Application" sec_product
   !endif
 
   ; Install a scheduled task to start a web server on system boot
-  push "${PRODUCT_NAME} Web Server"
-  push "Run the web server that allows access to the ${PRODUCT_NAME} application."
+  push "${product_label} Web Server"
+  push "Run the web server that allows access to the ${product_label} application."
   push "PT1M30S"
   push "$rubydir\bin\ruby.exe"
   push "script/rails server -e ${mode} -p ${webserver_port}"
@@ -407,9 +414,13 @@ Section "Install resque workers" sec_resque
   ; Install the batch file that starts the workers.
   File "run-resque.bat"
 
+  ; start up the resque workers so that the initial evaluation of measures 
+  ; can be performed
+  ExecShell "open" "run-resque.bat" "" SW_HIDE
+
   ; Install the scheduled service to run the resque workers on startup.
-  push "${PRODUCT_NAME} Resque Workers"
-  push "Run the resque workers for the ${PRODUCT_NAME} application."
+  push "${product_label} Resque Workers"
+  push "Run the resque workers for the ${product_label} application."
   push "PT45S"
   push "$INSTDIR\${PRODUCT_NAME}\script\run-resque.bat"
   push ""
@@ -462,9 +473,9 @@ Section "Install patient records" sec_samplepatients
   !if ${PRODUCT_NAME} == 'cypress'
     ; Set output path to the cypress directory
     SetOutPath $INSTDIR\cypress
-    ; TODO replace mpl:load with mpl:initialize as of v1.1 for cypress
     ;ExecWait 'bundle.bat exec rake mpl:initalize RAILS_ENV=${mode}'
-    ExecWait 'bundle.bat exec rake mpl:load RAILS_ENV=${mode}'
+    ExecWait 'bundle.bat exec rake mpl:load'
+    ExecWait 'bundle.bat exec rake mpl:eval'
   !endif
   !if ${PRODUCT_NAME} == 'popHealth'
     ExecWait 'bundle.bat exec rake patient:random[500]'
@@ -475,15 +486,15 @@ SectionEnd
 ; Descriptions
 
   ;Language strings
-  LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall ${PRODUCT_NAME}"
+  LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall ${product_label}"
   LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
   LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
   LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
   LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
   LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "Quality measure definitions"
-  LangString DESC_sec_product   ${LANG_ENGLISH} "${PRODUCT_NAME} web application"
-  LangString DESC_sec_resque    ${LANG_ENGLISH} "${PRODUCT_NAME} resque workers"
+  LangString DESC_sec_product   ${LANG_ENGLISH} "${product_label} web application"
+  LangString DESC_sec_resque    ${LANG_ENGLISH} "${product_label} resque workers"
 
   LangString DESC_sec_samplepatients ${LANG_ENGLISH} "Generates sample patient records"
 
@@ -515,19 +526,19 @@ SectionEnd
 Section "Uninstall"
   
   ; Remove registry keys
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
-  DeleteRegKey HKLM SOFTWARE\${PRODUCT_NAME}
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}"
+  DeleteRegKey HKLM SOFTWARE\${product_label}
 
   ; Uninstall the resque worker scheduled task
-  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Resque Workers"'
-  push "${PRODUCT_NAME} Resque Workers"
+  ExecWait 'schtasks.exe /end /tn "${product_label} Resque Workers"'
+  push "${product_label} Resque Workers"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Resque Workers task: $0"
 
   ; Uninstall web application
-  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Web Server"'
-  push "${PRODUCT_NAME} Web Server"
+  ExecWait 'schtasks.exe /end /tn "${product_label} Web Server"'
+  push "${product_label} Web Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Web Server task: $0"
@@ -538,8 +549,8 @@ Section "Uninstall"
 
   ; Uninstall redis
   ; Stop task and remove scheduled task.
-  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Redis Server"'
-  push "${PRODUCT_NAME} Redis Server"
+  ExecWait 'schtasks.exe /end /tn "${product_label} Redis Server"'
+  push "${product_label} Redis Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Redis Server task: $0"
@@ -566,10 +577,10 @@ Section "Uninstall"
   Delete $INSTDIR\${PRODUCT_NAME}.URL
 
   ; Remove shortcuts, if any
-  Delete "$SMPROGRAMS\${PRODUCT_NAME}\*.*"
+  Delete "$SMPROGRAMS\${product_label}\*.*"
 
   ; Remove directories used
-  RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
+  RMDir "$SMPROGRAMS\${product_label}"
   RMDir "$INSTDIR\depinstallers"
   RMDIR "$INSTDIR\${PRODUCT_NAME}"
   RMDir "$INSTDIR"

@@ -77,6 +77,7 @@ set clean=1
 set verbose=0
 set build=1
 set noop=0
+if "%1"=="" (goto :USAGE)
 for %%A in (%*) do (
   REM generate a "lean and mean" installer - one that has the bare 
   REM minimum in the package and requires the client machine to pull the
@@ -247,7 +248,7 @@ if %clean% == 1 (
   if exist %redisdir%   (rd /s /q %redisdir%)
   if exist cypress*.tgz (del cypress*.tgz)
   if exist popHealth*.tgz (del popHealth*.tgz)
-  if exist measurs*.tgz (del measures*.tgz)
+  if exist measures*.tgz (del measures*.tgz)
 )
 
 REM ------
@@ -284,6 +285,13 @@ if %build% == 0 (
 REM Unpack the product and prepare it accordingly.
 mkdir %product%
 "%tarcmd%" --strip-components=1 -C %product% -xf .\%product%-%installer_ver%.tgz
+if ERRORLEVEL 1 (
+  echo.
+  echo !!! there is a problem with the tar file %product%-%installer_ver%.tgz !!!
+  echo Please verify %installer_ver% is a valid tag for %product%
+  echo.
+  exit /b 1
+)
 if %self_contained% == 1 (
   pushd %product%
   echo ...packaging up all of the requisite gems into %product%/vendors/cache
@@ -295,6 +303,13 @@ if %self_contained% == 1 (
 REM Unpack the producmeasures project and prepare it accordingly.
 mkdir measures
 "%tarcmd%" --strip-components=1 -C measures -xf .\measures-%measures_tag%.tgz
+if ERRORLEVEL 1 (
+  echo.
+  echo !!! there is a problem with the tar file measures-%measures_tag%.tgz !!!
+  echo Please verify %measures_tag% is a valid tag for measures
+  echo.
+  exit /b 1
+)
 if %self_contained% == 1 (
   pushd measures
   echo ...packaging up all of the requisite gems into measures/vendors/cache
