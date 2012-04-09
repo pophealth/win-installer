@@ -24,7 +24,7 @@ SetCompressor /solid lzma
 
 ; Make sure the product name is defined
 !ifndef PRODUCT_NAME
-  !error "Must provide the name of the product. i.e. /DPRODUCT_NAME=[popHealth|cypress]"
+  !error "Must provide the name of the product. i.e. /DPRODUCT_NAME=[popHealth|Cypress]"
 !endif
 
 ; Make sure the installer version number is defined
@@ -33,8 +33,8 @@ SetCompressor /solid lzma
 !endif
 
 ; Make sure the size required for the product is defined
-!ifndef SIZE_TO_ADD
-  !error "Must provide the size of the product. i.e. /DSIZE_TO_ADD=<num_kb>"
+!ifndef PRODUCT_SIZE
+  !error "Must provide the size of product. i.e. /DPRODUCT_SIZE=<num_kb>"
 !endif
 
 ; The file to write
@@ -74,24 +74,8 @@ LicenseData license.txt
   !define ruby_key 'HKLM "software\Wow6432Node\RubyInstaller\MRI\1.9.2" "InstallLocation"'
 !endif
 
-; NB - the two apps use different naming conventions, would probably
-; be worth fixing
-!if ${PRODUCT_NAME} == 'cypress'
-  !define product_label 'Cypress'
-  !define db_name 'cypress_development'
-  !define webserver_port 3000
-  !define mode 'development'
-!else
-  ; at least as of v1.4.1, popHealth does not run properly in production mode
-  ; so we install development
-  !define product_label 'popHealth'
-  !define db_name 'pophealth-development'
-  !define webserver_port 3000
-  !define mode 'development'
-!endif
-
 ; The name of the installer
-Name "${product_label}"
+Name "${PRODUCT_NAME}"
 
 ;--------------------------------
 ; Some useful macros
@@ -203,13 +187,13 @@ Section "Create Uninstaller" sec_uninstall
   SetOutPath $INSTDIR
 
   ; Write the installation path into the registry
-  WriteRegStr HKLM SOFTWARE\${product_label} "Install_Dir" "$INSTDIR"
+  WriteRegStr HKLM SOFTWARE\${PRODUCT_NAME} "Install_Dir" "$INSTDIR"
   
   ; Write the uninstall keys for Windows
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "DisplayName" "${product_label}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}" "NoRepair" 1
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayName" "${PRODUCT_NAME}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoRepair" 1
   WriteUninstaller "uninstall.exe"
   
 SectionEnd
@@ -227,15 +211,15 @@ Section "Start Menu Shortcuts" sec_startmenu
   SetOutPath $INSTDIR
 
   ; Create an Internet shortcut for the web app
-  WriteINIStr "$INSTDIR\${product_label}.URL" "InternetShortcut" "URL" "http://localhost:${webserver_port}/"
+  WriteINIStr "$INSTDIR\${PRODUCT_NAME}.URL" "InternetShortcut" "URL" "http://localhost:3000/"
 
-  CreateDirectory "$SMPROGRAMS\${product_label}"
-  CreateShortCut "$SMPROGRAMS\${product_label}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
-  CreateShortCut "$SMPROGRAMS\${product_label}\${product_label}.lnk" "$INSTDIR\${product_label}.URL" "" "" ""
+  CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.URL" "" "" ""
   
 SectionEnd
 
-
+SectionGroup "Required 3rd party software"
 ;-----------------------------------------------------------------------------
 ; Ruby
 ;
@@ -336,7 +320,7 @@ Section "Install Redis" sec_redis
   ExecShell "open" "redis-server.exe" "redis.conf" SW_HIDE
 
   ; Install a scheduled task to start redis on system boot
-  push "${product_label} Redis Server"
+  push "${PRODUCT_NAME} Redis Server"
   push "Run the redis server at startup."
   push "PT15S"
   push "$redisdir\${BUILDARCH}bit\redis-server.exe"
@@ -349,53 +333,13 @@ Section "Install Redis" sec_redis
   SetRebootFlag true
 SectionEnd
 
+SectionGroupEnd
+; end "Third party software"
+
 ;-----------------------------------------------------------------------------
-; Web Application
-;
-; This section copies the Web Application onto the system.  This
-; also installs a scheduled task with a boot trigger that will start a web
-; server so that the application can be accessed when the system is booted.
+; Include the product-specific Section definitions
 ;-----------------------------------------------------------------------------
-Section "${product_label} Web Application" sec_product
-
-  SectionIn RO
-  AddSize ${SIZE_TO_ADD}        ; current size of cloned repo (in kB)
-
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r ${PRODUCT_NAME}
-
-  ; Install required native gems
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  File /r binary_gems
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
-  RMDIR /r $INSTDIR\depinstallers\binary_gems
-
-  SetOutPath "$INSTDIR\${PRODUCT_NAME}"
-  ExecWait 'bundle.bat install'
-
-  !if ${PRODUCT_NAME} == 'popHealth'
-    ; Create admin user account
-    ExecWait 'bundle.bat exec rake admin:create_admin_account'
-  !endif
-
-  !if ${PRODUCT_NAME} == 'cypress'
-  !endif
-
-  ; Install a scheduled task to start a web server on system boot
-  push "${product_label} Web Server"
-  push "Run the web server that allows access to the ${product_label} application."
-  push "PT1M30S"
-  push "$rubydir\bin\ruby.exe"
-  push "script/rails server -e ${mode} -p ${webserver_port}"
-  push "$INSTDIR\${PRODUCT_NAME}"
-  push "System"
-  Call CreateTask
-  pop $0
-  DetailPrint "Result of scheduling Web Server task: $0"
-  SetRebootFlag true
-SectionEnd
+!include ${PRODUCT_NAME}.nsh
 
 ;-----------------------------------------------------------------------------
 ; Resque Workers
@@ -403,6 +347,9 @@ SectionEnd
 ; This section installs a batch file that will start the resque workers and
 ; schedules a task with a boot trigger so that the workers are always started
 ; when the system boots up.
+;
+; It should appear after the main web application's Section so that the script
+; directory is available
 ;-----------------------------------------------------------------------------
 Section "Install resque workers" sec_resque
 
@@ -419,8 +366,8 @@ Section "Install resque workers" sec_resque
   ExecShell "open" "run-resque.bat" "" SW_HIDE
 
   ; Install the scheduled service to run the resque workers on startup.
-  push "${product_label} Resque Workers"
-  push "Run the resque workers for the ${product_label} application."
+  push "${PRODUCT_NAME} Resque Workers"
+  push "Run the resque workers for the ${PRODUCT_NAME} application."
   push "PT45S"
   push "$INSTDIR\${PRODUCT_NAME}\script\run-resque.bat"
   push ""
@@ -432,87 +379,40 @@ Section "Install resque workers" sec_resque
   SetRebootFlag true
 SectionEnd
 
-;-----------------------------------------------------------------------------
-; Quality Measures
-;
-; This section copies the Quality Measures onto the system
-;-----------------------------------------------------------------------------
-Section "Quality Measures" sec_qualitymeasures
-
-  SectionIn RO
-
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r measures
-
-  ; Install required gems
-  SetOutPath $INSTDIR\measures
-  ExecWait 'bundle.bat install --without="test build"'
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; Patient Records
-;
-; This section adds 500 random patient records to the mongo database so that
-; there is data to play around with as soon as the installer finishes.
-;-----------------------------------------------------------------------------
-Section "Install patient records" sec_samplepatients
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-
-  ; Set output path to the measures directory
-  SetOutPath $INSTDIR\measures
-
-  ; Define an environment variable for the database to use
-  !insertmacro EnvVarEverywhere 'DB_NAME' '${db_name}'
-
-  ; Load the quality measure definitions
-  ExecWait 'bundle.bat exec rake mongo:reload_bundle'
-
-  ; use different patient seeding for cypress than popHealth
-  !if ${PRODUCT_NAME} == 'cypress'
-    ; Set output path to the cypress directory
-    SetOutPath $INSTDIR\cypress
-    ;ExecWait 'bundle.bat exec rake mpl:initalize RAILS_ENV=${mode}'
-    ExecWait 'bundle.bat exec rake mpl:load'
-    ExecWait 'bundle.bat exec rake mpl:eval'
-  !endif
-  !if ${PRODUCT_NAME} == 'popHealth'
-    ExecWait 'bundle.bat exec rake patient:random[500]'
-  !endif
-SectionEnd
-
 ;--------------------------------
 ; Descriptions
 
   ;Language strings
-  LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall ${product_label}"
-  LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
-  LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
-  LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
-  LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
-  LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
-  LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "Quality measure definitions"
-  LangString DESC_sec_product   ${LANG_ENGLISH} "${product_label} web application"
-  LangString DESC_sec_resque    ${LANG_ENGLISH} "${product_label} resque workers"
+  LangString DESC_sec_uninstall       ${LANG_ENGLISH} "Provides ability to uninstall ${PRODUCT_NAME}"
+  LangString DESC_sec_startmenu       ${LANG_ENGLISH} "Start Menu shortcuts"
+  LangString DESC_sec_ruby            ${LANG_ENGLISH} "Ruby scripting language"
+  LangString DESC_sec_bundler         ${LANG_ENGLISH} "Ruby Bundler gem"
+  LangString DESC_sec_mongodb         ${Lang_ENGLISH} "MongoDB database server"
+  LangString DESC_sec_redis           ${LANG_ENGLISH} "Redis server"
+  LangString DESC_sec_resque          ${LANG_ENGLISH} "${PRODUCT_NAME} resque workers"
+  LangString DESC_sec_webserver       ${LANG_ENGLISH} "${PRODUCT_NAME} web application"
+  LangString DESC_sec_samplepatients  ${LANG_ENGLISH} "Generates sample patient records"
 
-  LangString DESC_sec_samplepatients ${LANG_ENGLISH} "Generates sample patient records"
-
-  LangString ProxyPage_Title    ${LANG_ENGLISH} "Proxy Server Settings"
-  LangString ProxyPage_SUBTITLE ${LANG_ENGLISH} "Specify the name of the proxy server used to access the Internet"
+  LangString ProxyPage_Title          ${LANG_ENGLISH} "Proxy Server Settings"
+  LangString ProxyPage_SUBTITLE       ${LANG_ENGLISH} "Specify the name of the proxy server used to access the Internet"
 
   ;Assign language strings to sections
   !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall} $(DESC_sec_uninstall)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu} $(DESC_sec_startmenu)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_product} $(DESC_sec_product)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque} $(DESC_sec_resque)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients} $(DESC_sec_samplepatients)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall}       $(DESC_sec_uninstall)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu}       $(DESC_sec_startmenu)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby}            $(DESC_sec_ruby)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler}         $(DESC_sec_bundler)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb}         $(DESC_sec_mongodb)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis}           $(DESC_sec_redis)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque}          $(DESC_sec_resque)
+
+    ; each product defines its own section for teh webserver and samplepatients
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_webserver}        $(DESC_sec_webserver)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients}  $(DESC_sec_samplepatients)
+
+    ; additional sections for patient importer
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_java}            $(DESC_sec_java)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_patientimporter} $(DESC_sec_patientimporter)
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;=============================================================================
@@ -526,19 +426,19 @@ SectionEnd
 Section "Uninstall"
   
   ; Remove registry keys
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${product_label}"
-  DeleteRegKey HKLM SOFTWARE\${product_label}
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
+  DeleteRegKey HKLM SOFTWARE\${PRODUCT_NAME}
 
   ; Uninstall the resque worker scheduled task
-  ExecWait 'schtasks.exe /end /tn "${product_label} Resque Workers"'
-  push "${product_label} Resque Workers"
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Resque Workers"'
+  push "${PRODUCT_NAME} Resque Workers"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Resque Workers task: $0"
 
   ; Uninstall web application
-  ExecWait 'schtasks.exe /end /tn "${product_label} Web Server"'
-  push "${product_label} Web Server"
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Web Server"'
+  push "${PRODUCT_NAME} Web Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Web Server task: $0"
@@ -549,8 +449,8 @@ Section "Uninstall"
 
   ; Uninstall redis
   ; Stop task and remove scheduled task.
-  ExecWait 'schtasks.exe /end /tn "${product_label} Redis Server"'
-  push "${product_label} Redis Server"
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Redis Server"'
+  push "${PRODUCT_NAME} Redis Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Redis Server task: $0"
@@ -562,6 +462,15 @@ Section "Uninstall"
 
   ; Uninstall the Bundler gem
   ExecWait "gem.bat uninstall -x bundler"
+
+  ; Uninstall Java JRE
+  ; TODO: Did we really installer it?
+  MessageBox MB_ICONINFORMATION|MB_YESNO 'We installed Java.  Do you want us to uninstall it?' \
+      /SD IDYES IDNO skipjavauninst
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{26A24AE4-039D-4CA4-87B4-2F83217003FF}" \
+      "UninstallString"
+    ExecWait '$0'
+  skipjavauninst:
 
   ; Uninstall ruby -- Should we do a silent uninstall
   ; TODO: Did we really install it?
@@ -577,10 +486,10 @@ Section "Uninstall"
   Delete $INSTDIR\${PRODUCT_NAME}.URL
 
   ; Remove shortcuts, if any
-  Delete "$SMPROGRAMS\${product_label}\*.*"
+  Delete "$SMPROGRAMS\${PRODUCT_NAME}\*.*"
 
   ; Remove directories used
-  RMDir "$SMPROGRAMS\${product_label}"
+  RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
   RMDir "$INSTDIR\depinstallers"
   RMDIR "$INSTDIR\${PRODUCT_NAME}"
   RMDir "$INSTDIR"

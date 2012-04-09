@@ -1,12 +1,12 @@
-                      popHealth/cypress Windows Installer
+                      popHealth/Cypress Windows Installer
 
 ===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
 
 This repository contains the files and scripts necessary to build a Windows
-installer of popHealth and/or cypress.  This is not the place to go if you
-just want to install popHealth or cypress on Windows.  However, is you are a
+installer of popHealth and/or Cypress.  This is not the place to go if you
+just want to install popHealth or Cypress on Windows.  However, is you are a
 developer, working to enhance or update the installer for the latest version
-of popHealth/cypress, than you're in the right place.
+of popHealth/Cypress, than you're in the right place.
 
 ===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
 
@@ -63,7 +63,7 @@ of popHealth/cypress, than you're in the right place.
   (\\graw\ISO\VMWARE\VMware-viclient.exe) to go back to that snapshot whenever 
   you need to.  Likewise, as you install products (like popHealth) 
   successfully, you can take a snapshot of the machine's state.  If subsequent
-  product installs (like cypress) fail for some reason, you can revert back to
+  product installs (like Cypress) fail for some reason, you can revert back to
   the snapshot where popHealth is present.  
 
 =====================
@@ -74,36 +74,53 @@ Building the installer is quite simple.  After installing NSIS, make sure the
 NSIS install tool directory (C:\Program Files\NSIS by default) and the Git bin
 directory are included in the PATH environment variable.  If there are different
 versions of mongodb, redis or our measurs project required, you'll need to change
-the variables in the installergen.bat file to reflect them. From the directory 
+the variables in the preparefor.bat file to reflect them. From the directory 
 where this file resides, simply execute the following command:
 
-  installergen.bat --help
+  preparefor.bat --help
 
 which will display the following:
 
-Usage: <architecture> <product> <version> [switches]
+Usage: preparefor.bat <architecture> <product> <version> [switches]
 
-      where <architecture> is one of 32 or 64
-      and   <product> is either cypress or popHealth
-      and   <version> is the tag or branch name of the <product>
+   the target architecture: 32|64
+   the product:           popHealth|Cypress
+   the version tag:       version of the product (e.g. v1.1)
 
-   available switches are:
-   --help          to show usage information
-   --verbose       to turn echo on and see eberything that is happening
-   --noclean       to not delete lingering files from a previous installation
-   --nofetch       to not pull the tar files for measures and product
-   --noop          to run through what would be performed but without doing it
-   --fat-and-happy to generate a self-contained installer that packages all 
-                   requisite gems in the installer
-   --lean-and-mean to generate the bare minimum installer which relies on
-                   the client machine pulling gems at install time
+Additionally you can pass the following switches on the command line
+  --help               to show usage information
+  --verbose       to turn echo on and see eberything that is happening
+  --fat-and-happy to generate a self-contained installer that packages all
+                  requisite gems in the installer
+  --lean-and-mean to generate the bare minimum installer which relies on
+                  the client machine pulling gems at install time
 
-The installergen command is a batch file that prepares the directory for either a 32
-or a 64 bit build of the installer for popHealth or cypress. The batch 
+  --noclean       to not delete any lingering files from a previous installation
+  --clean-only    to only run the "clean" step
+  --nofetch       to not pull the tar files for measures and product
+  --fetch-only    to only run the "fetch" step
+  --nobuild       to avoid unpacking and compiling requisite software
+  --build-only    to only run the "build" step
+  --nogenerate    to avoid generating the installer with NSIS
+  --generate-only to only run the "generate" step
+
+A typical usage for each product would be:
+   preparefor 64 popHealth v1.4.1
+   preparefor 64 Cypress v1.1.1 --fat-and-happy
+
+The preparefor command is a batch file that prepares the directory for either a 32
+or a 64 bit build of the installer for popHealth or Cypress. The batch 
 file will also run the makensis command with the appropriate defines.  
 
 If all goes well, this will create an executable called either
 <product>-i386.exe (32 bit) or <product>-x86_64.exe (64 bit) which is the
 installer for the popHealth project for the respective architecture.  The same is
-true for cypress installers.
+true for Cypress installers.
 
+NB: the distinction between lean-and-mean and fat-and-happy is that the requisite
+gems are packaged up with the installer in placed in the vendor/cache directory
+for fat-and-happy.  With lean-and-mean, the gems are pulled from rubygems during
+installation rather than beforehand.  The reason for this is that Cypress, as of 
+this writing, depends on versions of gems that are not published on rubygems. 
+Rather, they reside on github.  But we don't want to require the client machine to
+install git.
