@@ -164,6 +164,7 @@ set tarcmd=
 set curlcmd=
 set grepcmd=
 set makensiscmd=
+set setcmd=
 
 for %%e in (%PATHEXT%) do (
   for %%x in (unzip%%e) do (
@@ -183,6 +184,16 @@ for %%e in (%PATHEXT%) do (
 if "%tarcmd%"=="" (
   echo tar command was not found on the path.  Please correct.
   echo If you've installed git, try adding [git_home]\bin to path.
+  exit /b 1
+)
+for %%e in (%PATHEXT%) do (
+  for %%x in (sed%%e) do (
+    if not defined sedcmd (set setcmd=%%~$PATH:x)
+  )
+)
+if "%sedcmd%"=="" (
+  echo sed command was not found on the path.  Please correct.
+  echo If you've installed RailsInstaller, try adding [RI]\Devkit\bin to path.
   exit /b 1
 )
 for %%e in (%PATHEXT%) do (
