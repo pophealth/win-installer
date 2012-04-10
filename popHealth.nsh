@@ -1,48 +1,4 @@
 
-SectionGroup "popHealth"
-;-----------------------------------------------------------------------------
-; Web Application
-;
-; This section copies the Web Application onto the system.  This
-; also installs a scheduled task with a boot trigger that will start a web
-; server so that the application can be accessed when the system is booted.
-;-----------------------------------------------------------------------------
-Section "${PRODUCT_NAME} Web Application" sec_webserver
-
-  SectionIn RO
-  AddSize ${PRODUCT_SIZE}        ; current size of cloned repo (in kB)
-
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r ${PRODUCT_NAME}
-
-  ; Install required native gems
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  File /r binary_gems
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
-  RMDIR /r $INSTDIR\depinstallers\binary_gems
-
-  SetOutPath "$INSTDIR\${PRODUCT_NAME}"
-  ExecWait 'bundle.bat install'
-
-  ; Create admin user account
-  ExecWait 'bundle.bat exec rake admin:create_admin_account'
-
-  ; Install a scheduled task to start a web server on system boot
-  push "${PRODUCT_NAME} Web Server"
-  push "Run the web server that allows access to the ${PRODUCT_NAME} application."
-  push "PT1M30S"
-  push "$rubydir\bin\ruby.exe"
-  push "script/rails server -p 3000"
-  push "$INSTDIR\${PRODUCT_NAME}"
-  push "System"
-  Call CreateTask
-  pop $0
-  DetailPrint "Result of scheduling Web Server task: $0"
-  SetRebootFlag true
-SectionEnd
-
 SectionGroup "Patient Importer"
 ;-----------------------------------------------------------------------------
 ; Patient Importer
@@ -100,15 +56,16 @@ Section "Install Java JRE" sec_java
 SectionEnd
 
 SectionGroupEnd
-
+; End Patient Importer" group
 
 ;-----------------------------------------------------------------------------
-; Patient Records
+; Post-install steps
 ;
 ; This section adds 500 random patient records to the mongo database so that
 ; there is data to play around with as soon as the installer finishes.
+; An admin account is also set up in the database.
 ;-----------------------------------------------------------------------------
-Section "Install patient records" sec_samplepatients
+Section "Post-install steps" sec_postinstall
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
 
@@ -123,10 +80,12 @@ Section "Install patient records" sec_samplepatients
 
   ; seed the patients
   ExecWait 'bundle.bat exec rake patient:random[500]'
-SectionEnd
 
-SectionGroupEnd
-; End "popHealth" group
+  ; Create admin user account
+  SetOutPath $INSTDIR\popHealth
+  ExecWait 'bundle.bat exec rake admin:create_admin_account'
+
+SectionEnd
 
 
 LangString DESC_sec_patientimporter ${LANG_ENGLISH} "Patient importer"

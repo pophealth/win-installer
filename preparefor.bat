@@ -28,6 +28,14 @@ REM              step
 REM 
 REM Original Author: Tim Taylor <ttaylor@mitre.org>
 REM Secondary:	     Tim Brown  <timbrown@mitre.org>
+REM
+REM TODO: 
+REM   - figure out a general way to calculate the space required by each
+REM     component and pass that into the nsis script for the AddSize command
+REM   - determine whether we want one installer that handles all of the
+REM     various products in our health care portfolio
+REM   - be careful about uninstalling software or data we didn't install
+REM
 REM ==========================================================================
 
 :USAGE
@@ -186,16 +194,16 @@ if "%tarcmd%"=="" (
   echo If you've installed git, try adding [git_home]\bin to path.
   exit /b 1
 )
-for %%e in (%PATHEXT%) do (
-  for %%x in (sed%%e) do (
-    if not defined sedcmd (set setcmd=%%~$PATH:x)
-  )
-)
-if "%sedcmd%"=="" (
-  echo sed command was not found on the path.  Please correct.
-  echo If you've installed RailsInstaller, try adding [RI]\Devkit\bin to path.
-  exit /b 1
-)
+REM for %%e in (%PATHEXT%) do (
+REM   for %%x in (sed%%e) do (
+REM     if not defined sedcmd (set setcmd=%%~$PATH:x)
+REM  )
+REM )
+REM if "%sedcmd%"=="" (
+REM   echo sed command was not found on the path.  Please correct.
+REM   echo If you've installed RailsInstaller, try adding [RI]\Devkit\bin to path.
+REM   exit /b 1
+REM )
 for %%e in (%PATHEXT%) do (
   for %%x in (curl%%e) do (
     if not defined curlcmd (set curlcmd=%%~$PATH:x)
@@ -477,17 +485,12 @@ if %generate% == 1 (
   echo Step 4 Generate the windows installer using NSIS
   echo ------
 
-  echo ...determining how much space will be needed for %product%
-  set size=
-  du --summarize --total %product% measures patient-importer | findstr total > foo.tmp
-  set /p tempsize= < foo.tmp
-  REM trim off the size portion
-  for /f "tokens=1,2 delims=/	" %%a in ("%tempsize%") do set size=%%a
-  del foo.tmp
-  
+  echo ...determining how much space will be needed for %product% with measures and patient-importer
+  for /f "tokens=1,2 delims=	" %%a in ('du --summarize --total %%product%% measures patient-importer ^| findstr total') do if "%%b"=="total" set product_size=%%a
+ 
   REM Run makensis to build product installer
   echo ...constructing the commandline to invoke NSIS
-  "%makensiscmd%" /DBUILDARCH=%arch% /DINSTALLER_VER=%installer_ver% /DPRODUCT_NAME=%product% /DPRODUCT_SIZE=%size%  main.nsi
+  "%makensiscmd%" /DBUILDARCH=%arch% /DINSTALLER_VER=%installer_ver% /DPRODUCT_NAME=%product% /DPRODUCT_SIZE=%product_size%  main.nsi
   echo.
   echo --------------------------------------------------------------------------------
   if %arch%==32 (

@@ -1,53 +1,23 @@
-SectionGroup "Cypress"
 ;-----------------------------------------------------------------------------
-; Web Application
-;
-; This section copies the Web Application onto the system.  This
-; also installs a scheduled task with a boot trigger that will start a web
-; server so that the application can be accessed when the system is booted.
-;-----------------------------------------------------------------------------
-Section "${PRODUCT_NAME} Web Application" sec_webserver
-
-  SectionIn RO
-  AddSize ${PRODUCT_SIZE}        ; current size of cloned repo (in kB)
-
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r Cypress
-
-  ; Install required native gems
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  File /r binary_gems
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
-  RMDIR /r $INSTDIR\depinstallers\binary_gems
-
-  SetOutPath "$INSTDIR\Cypress"
-  ExecWait 'bundle.bat install'
-
-  ; Install a scheduled task to start a web server on system boot
-  push "Cypress Web Server"
-  push "Run the web server that allows access to the Cypress application."
-  push "PT1M30S"
-  push "$rubydir\bin\ruby.exe"
-  push "script/rails server -p 3000"
-  push "$INSTDIR\Cypress"
-  push "System"
-  Call CreateTask
-  pop $0
-  DetailPrint "Result of scheduling Web Server task: $0"
-  SetRebootFlag true
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; Patient Records
+; Post-install steps
 ;
 ; This section adds the Test Deck patient records to the mongo database so that
 ; there is data to work with as soon as the installer finishes.
+; It also runs the quality measure engine on the test deck.
 ;-----------------------------------------------------------------------------
-Section "Install patient records" sec_samplepatients
+Section "Post-Install steps" sec_postinstall
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
+
+  SetOutPath "$redisdir\${BUILDARCH}bit"
+  ; start up redis so that the initial evaluation of measures can be performed
+  ExecShell "open" "redis-server.exe" "redis.conf" SW_HIDE
+
+  ; Set output path to the product web app's script directory
+  SetOutPath $INSTDIR\${PRODUCT_NAME}\script
+  ; start up the resque workers so that the initial evaluation of measures 
+  ; can be performed
+  ExecShell "open" "run-resque.bat" "" SW_HIDE
 
   ; Set output path to the measures directory
   SetOutPath $INSTDIR\measures
@@ -59,12 +29,9 @@ Section "Install patient records" sec_samplepatients
   ExecWait 'bundle.bat exec rake mongo:reload_bundle'
 
   ; seed with test deck
-  ; Set output path to the Cypress directory
-  SetOutPath $INSTDIR\Cypress
+  ; Set output path to the ${PRODUCT_NAME} directory
+  SetOutPath $INSTDIR\${PRODUCT_NAME}
   ;ExecWait 'bundle.bat exec rake mpl:initalize RAILS_ENV=${mode}'
   ExecWait 'bundle.bat exec rake mpl:load'
   ExecWait 'bundle.bat exec rake mpl:eval'
 SectionEnd
-
-SectionGroupEnd
-; end "Cypress"

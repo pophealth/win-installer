@@ -315,10 +315,6 @@ Section "Install Redis" sec_redis
 
   File /r redis-2.4.0\*.*
 
-  SetOutPath "$redisdir\${BUILDARCH}bit"
-  ; start up redis so that the initial evaluation of measures can be performed
-  ExecShell "open" "redis-server.exe" "redis.conf" SW_HIDE
-
   ; Install a scheduled task to start redis on system boot
   push "${PRODUCT_NAME} Redis Server"
   push "Run the redis server at startup."
@@ -337,9 +333,62 @@ SectionGroupEnd
 ; end "Third party software"
 
 ;-----------------------------------------------------------------------------
-; Include the product-specific Section definitions
+; Quality Measures
+;
+; This section copies the Quality Measures onto the system
 ;-----------------------------------------------------------------------------
-!include ${PRODUCT_NAME}.nsh
+Section "Quality Measures" sec_qualitymeasures
+
+  SectionIn RO
+
+  ; Set output path to the installation directory.
+  SetOutPath $INSTDIR
+  File /r measures
+
+  ; Install required gems
+  SetOutPath $INSTDIR\measures
+  ExecWait 'bundle.bat install --without="test build"'
+SectionEnd
+
+;-----------------------------------------------------------------------------
+; Web Application
+;
+; This section copies the Web Application onto the system.  This
+; also installs a scheduled task with a boot trigger that will start a web
+; server so that the application can be accessed when the system is booted.
+;-----------------------------------------------------------------------------
+Section "${PRODUCT_NAME} Web Application" sec_webserver
+
+  SectionIn RO
+  AddSize ${PRODUCT_SIZE}        ; current size of cloned repo (in kB)
+
+  ; Set output path to the installation directory.
+  SetOutPath $INSTDIR
+  File /r ${PRODUCT_NAME}
+
+  ; Install required native gems
+  SetOutPath $INSTDIR\depinstallers ; temporary directory
+  File /r binary_gems
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
+  RMDIR /r $INSTDIR\depinstallers\binary_gems
+
+  SetOutPath "$INSTDIR\${PRODUCT_NAME}"
+  ExecWait 'bundle.bat install'
+
+  ; Install a scheduled task to start a web server on system boot
+  push "${PRODUCT_NAME} Web Server"
+  push "Run the web server that allows access to the ${PRODUCT_NAME} application."
+  push "PT1M30S"
+  push "$rubydir\bin\ruby.exe"
+  push "script/rails server -p 3000"
+  push "$INSTDIR\${PRODUCT_NAME}"
+  push "System"
+  Call CreateTask
+  pop $0
+  DetailPrint "Result of scheduling Web Server task: $0"
+  SetRebootFlag true
+SectionEnd
 
 ;-----------------------------------------------------------------------------
 ; Resque Workers
@@ -361,10 +410,6 @@ Section "Install resque workers" sec_resque
   ; Install the batch file that starts the workers.
   File "run-resque.bat"
 
-  ; start up the resque workers so that the initial evaluation of measures 
-  ; can be performed
-  ExecShell "open" "run-resque.bat" "" SW_HIDE
-
   ; Install the scheduled service to run the resque workers on startup.
   push "${PRODUCT_NAME} Resque Workers"
   push "Run the resque workers for the ${PRODUCT_NAME} application."
@@ -379,6 +424,13 @@ Section "Install resque workers" sec_resque
   SetRebootFlag true
 SectionEnd
 
+
+;-----------------------------------------------------------------------------
+; Include the product-specific Section definitions
+;-----------------------------------------------------------------------------
+!include ${PRODUCT_NAME}.nsh
+
+
 ;--------------------------------
 ; Descriptions
 
@@ -390,8 +442,9 @@ SectionEnd
   LangString DESC_sec_mongodb         ${Lang_ENGLISH} "MongoDB database server"
   LangString DESC_sec_redis           ${LANG_ENGLISH} "Redis server"
   LangString DESC_sec_resque          ${LANG_ENGLISH} "${PRODUCT_NAME} resque workers"
+  LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "Quality measure definitions"
   LangString DESC_sec_webserver       ${LANG_ENGLISH} "${PRODUCT_NAME} web application"
-  LangString DESC_sec_samplepatients  ${LANG_ENGLISH} "Generates sample patient records"
+  LangString DESC_sec_postinstall     ${LANG_ENGLISH} "Initialize database with patient data and quality measures"
 
   LangString ProxyPage_Title          ${LANG_ENGLISH} "Proxy Server Settings"
   LangString ProxyPage_SUBTITLE       ${LANG_ENGLISH} "Specify the name of the proxy server used to access the Internet"
@@ -405,10 +458,11 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb}         $(DESC_sec_mongodb)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis}           $(DESC_sec_redis)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque}          $(DESC_sec_resque)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_webserver}       $(DESC_sec_webserver)
 
-    ; each product defines its own section for teh webserver and samplepatients
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_webserver}        $(DESC_sec_webserver)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients}  $(DESC_sec_samplepatients)
+    ; each product defines its own section for the post-install steps
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_postinstall}     $(DESC_sec_postinstall)
 
     ; additional sections for patient importer
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_java}            $(DESC_sec_java)
