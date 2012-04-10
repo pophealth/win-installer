@@ -1,12 +1,12 @@
-                          popHealth Windows Installer
+                      popHealth/Cypress Windows Installer
 
 ===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
 
-This repository contains the files and scripts necessary to build a one-click
-installer of popHealth for Windows users.  This is not the place to go if you
-just want to install popHealth on a Windows platform.  However, is you are a
+This repository contains the files and scripts necessary to build a Windows
+installer of popHealth and/or Cypress.  This is not the place to go if you
+just want to install popHealth or Cypress on Windows.  However, is you are a
 developer, working to enhance or update the installer for the latest version
-of popHealth, than you're in the right place.
+of popHealth/Cypress, than you're in the right place.
 
 ===== WARNING === WARNING === WARNING === WARNING === WARNIN === WARNING =====
 
@@ -33,6 +33,13 @@ of popHealth, than you're in the right place.
   <GIT HOME>\bin to your PATH and you'll be set.  <GIT HOME> refers to the
   directory where git is installed (C:\Program Files\Git by default).
 
+* RailsInstaller Developer Kit
+  The scripts need to have a development environment set up for building the
+  native version of certain gems.  In order to compile from sources, the
+  environment must contain a C++ compiler.  The easiest way to do this is if
+  you have installed the RailsInstaller from http://railsinstaller.org/, then 
+  set a RI_DEVKIT environemt variable to C:\RailsInstaller\DevKit
+
 * OLE-COM Object Viewer (optional)
 
   While not explicitly necessary to build the installer, some aspects of
@@ -45,6 +52,19 @@ of popHealth, than you're in the right place.
   Microsoft's Visual Studio development environment.  I believe that it is
   also part of the Windows 2000 Resource Kit.
 
+* VM environment (recommended)
+
+  When testing installers, it is a good idea to have a reproducible environment
+  to revert back to if/when things don't install or uninstall properly.  An
+  easy way to set this up is to have a VM (e.g. cypress-win7.mitre.org and
+  cypress-xp.mitre.org) on which you have the requisite privileges to create 
+  "snapshots".  Have one snapshot that is simply the original image that was 
+  cloned.  Then you can use the vSphere application 
+  (\\graw\ISO\VMWARE\VMware-viclient.exe) to go back to that snapshot whenever 
+  you need to.  Likewise, as you install products (like popHealth) 
+  successfully, you can take a snapshot of the machine's state.  If subsequent
+  product installs (like Cypress) fail for some reason, you can revert back to
+  the snapshot where popHealth is present.  
 
 =====================
 +  Building
@@ -52,18 +72,55 @@ of popHealth, than you're in the right place.
 
 Building the installer is quite simple.  After installing NSIS, make sure the
 NSIS install tool directory (C:\Program Files\NSIS by default) and the Git bin
-directory are included in the PATH environment variable.  From the directory
-where this file resides, simply execute the following commands:
+directory are included in the PATH environment variable.  If there are different
+versions of mongodb, redis or our measurs project required, you'll need to change
+the variables in the preparefor.bat file to reflect them. From the directory 
+where this file resides, simply execute the following command:
 
-  preparefor [32 | 64]
-  makensis [/DBUILDARCH=[32 | 64]] popHealth.nsi
+  preparefor.bat --help
 
-The first command is a batch file that prepares the directory for either a 32
-or a 64 bit build of the installer.  If no option is specified, 32 bit is
-used as a default.  The preparefor batch file will also run the makensis
-command with the appropriate BUILDARCH define.  If the makensis command is
-run separately without a /DBUILDARCH argument, then a 32 bit build is assumed.
+which will display the following:
+
+Usage: preparefor.bat <architecture> <product> <version> [switches]
+
+   the target architecture: 32|64
+   the product:           popHealth|Cypress
+   the version tag:       version of the product (e.g. v1.1)
+
+Additionally you can pass the following switches on the command line
+  --help               to show usage information
+  --verbose       to turn echo on and see eberything that is happening
+  --fat-and-happy to generate a self-contained installer that packages all
+                  requisite gems in the installer
+  --lean-and-mean to generate the bare minimum installer which relies on
+                  the client machine pulling gems at install time
+
+  --noclean       to not delete any lingering files from a previous installation
+  --clean-only    to only run the "clean" step
+  --nofetch       to not pull the tar files for measures and product
+  --fetch-only    to only run the "fetch" step
+  --nobuild       to avoid unpacking and compiling requisite software
+  --build-only    to only run the "build" step
+  --nogenerate    to avoid generating the installer with NSIS
+  --generate-only to only run the "generate" step
+
+A typical usage for each product would be:
+   preparefor 64 popHealth v1.4.1
+   preparefor 64 Cypress v1.1.1 --fat-and-happy
+
+The preparefor command is a batch file that prepares the directory for either a 32
+or a 64 bit build of the installer for popHealth or Cypress. The batch 
+file will also run the makensis command with the appropriate defines.  
 
 If all goes well, this will create an executable called either
-popHealth-i386.exe (32 bit) or popHealth-x86_64.exe (64 bit) which is the
-one-click installer for the popHealth project for the respective architecture.
+<product>-i386.exe (32 bit) or <product>-x86_64.exe (64 bit) which is the
+installer for the popHealth project for the respective architecture.  The same is
+true for Cypress installers.
+
+NB: the distinction between lean-and-mean and fat-and-happy is that the requisite
+gems are packaged up with the installer in placed in the vendor/cache directory
+for fat-and-happy.  With lean-and-mean, the gems are pulled from rubygems during
+installation rather than beforehand.  The reason for this is that Cypress, as of 
+this writing, depends on versions of gems that are not published on rubygems. 
+Rather, they reside on github.  But we don't want to require the client machine to
+install git.

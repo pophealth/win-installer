@@ -1,9 +1,9 @@
-; popHealth.nsi
+; main.nsi
 ;
-; This script will install the popHealth system (with all dependencies) and
-; configure so that the popHealth application is available after the next
-; system boot.  It also sets up an uninstaller so that the user can remove the
-; application completely if desired.
+; This script will install the system passed in as PRODUCT_NAME (with all 
+; dependencies) and configure so that the application is available after
+; the next system boot.  It also sets up an uninstaller so that the user 
+; can remove the application completely if desired.
 
 ;--------------------------------
 
@@ -22,29 +22,36 @@ SetCompressor /solid lzma
 ; Only install on Windows XP or more recent (option not supported yet)
 ;TargetMinimalOS 5.1
 
-; The name of the installer
-Name "popHealth"
+; Make sure the product name is defined
+!ifndef PRODUCT_NAME
+  !error "Must provide the name of the product. i.e. /DPRODUCT_NAME=[popHealth|Cypress]"
+!endif
 
 ; Make sure the installer version number is defined
 !ifndef INSTALLER_VER
   !error "Must provide installer version. i.e. /DINSTALLER_VER=<ver_num>"
 !endif
 
+; Make sure the size required for the product is defined
+!ifndef PRODUCT_SIZE
+  !error "Must provide the size of product. i.e. /DPRODUCT_SIZE=<num_kb>"
+!endif
+
 ; The file to write
-;OutFile "popHealth-i386.exe"
+;OutFile "<PRODUCT_NAME>-i386.exe"
 !ifndef BUILDARCH
   !define BUILDARCH 32
 !endif
 !if ${BUILDARCH} = 32
-OutFile "popHealth-${INSTALLER_VER}-i386.exe"
+OutFile "${PRODUCT_NAME}-${INSTALLER_VER}-i386.exe"
 !else
-OutFile "popHealth-${INSTALLER_VER}-x86_64.exe"
+OutFile "${PRODUCT_NAME}-${INSTALLER_VER}-x86_64.exe"
 !endif
 !echo "BUILDARCH = ${BUILDARCH}"
 
 ; Registry key to check for directory (so if you install again, it will
 ; overwrite the old one automatically)
-InstallDirRegKey HKLM "Software\popHealth" "Install_Dir"
+InstallDirRegKey HKLM "Software\${PRODUCT_NAME}" "Install_Dir"
 
 ; Request application privileges for Windows Vista
 RequestExecutionLevel admin
@@ -66,6 +73,9 @@ LicenseData license.txt
 !else
   !define ruby_key 'HKLM "software\Wow6432Node\RubyInstaller\MRI\1.9.2" "InstallLocation"'
 !endif
+
+; The name of the installer
+Name "${PRODUCT_NAME}"
 
 ;--------------------------------
 ; Some useful macros
@@ -118,7 +128,7 @@ LicenseData license.txt
 ;Interface Settings
 
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP popHealthMiniLogo.bmp
+!define MUI_HEADERIMAGE_BITMAP ${PRODUCT_NAME}MiniLogo.bmp
 !define MUI_ABORTWARNING
 XPStyle on
 
@@ -177,13 +187,13 @@ Section "Create Uninstaller" sec_uninstall
   SetOutPath $INSTDIR
 
   ; Write the installation path into the registry
-  WriteRegStr HKLM SOFTWARE\popHealth "Install_Dir" "$INSTDIR"
+  WriteRegStr HKLM SOFTWARE\${PRODUCT_NAME} "Install_Dir" "$INSTDIR"
   
   ; Write the uninstall keys for Windows
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\popHealth" "DisplayName" "popHealth"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\popHealth" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\popHealth" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\popHealth" "NoRepair" 1
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayName" "${PRODUCT_NAME}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "NoRepair" 1
   WriteUninstaller "uninstall.exe"
   
 SectionEnd
@@ -192,7 +202,7 @@ SectionEnd
 ; Start Menu Shortcuts
 ;
 ; Registers a Start Menu shortcut for the application uninstaller and another
-; to launch a web browser into the popHealth web application.
+; to launch a web browser into the web application.
 ;-----------------------------------------------------------------------------
 Section "Start Menu Shortcuts" sec_startmenu
 
@@ -200,16 +210,16 @@ Section "Start Menu Shortcuts" sec_startmenu
 
   SetOutPath $INSTDIR
 
-  ; Create an Internet shortcut for popHealth web app
-  WriteINIStr "$INSTDIR\popHealth.URL" "InternetShortcut" "URL" "http://localhost:3000/"
+  ; Create an Internet shortcut for the web app
+  WriteINIStr "$INSTDIR\${PRODUCT_NAME}.URL" "InternetShortcut" "URL" "http://localhost:3000/"
 
-  CreateDirectory "$SMPROGRAMS\popHealth"
-  CreateShortCut "$SMPROGRAMS\popHealth\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
-  CreateShortCut "$SMPROGRAMS\popHealth\popHealth.lnk" "$INSTDIR\popHealth.URL" "" "" ""
+  CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.URL" "" "" ""
   
 SectionEnd
 
-
+SectionGroup "Required 3rd party software"
 ;-----------------------------------------------------------------------------
 ; Ruby
 ;
@@ -233,11 +243,8 @@ Section "Install Ruby" sec_ruby
   installruby:	
   SetOutPath $INSTDIR\depinstallers ; temporary directory
 
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install Ruby.  On the optional tasks dialog, select \
-    "Add Ruby executables to your PATH"; and "Associate .rb files with this Ruby installation" boxes.' /SD IDOK \
-    IDCANCEL rubydone
   File "rubyinstaller-1.9.2-p290.exe"
-  ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"'
+  ExecWait '"$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe" /verysilent /tasks="assocfiles,modpath"'
   Delete "$INSTDIR\depinstallers\rubyinstaller-1.9.2-p290.exe"
 
   ;Make sure ruby was installed
@@ -248,38 +255,6 @@ Section "Install Ruby" sec_ruby
   rubydone:
   Push "$rubydir\bin"
   Call AddToPath
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; Java JRE
-;
-; Runs the Java JRE install program and waits for it to finish.
-; TODO: Should detect if a jvm is already installed.
-; TODO: Should record somehow if we actually install this so that the
-;       uninstaller can remove it.
-;-----------------------------------------------------------------------------
-Section "Install Java JRE" sec_java
-
-  SectionIn 1 3			; enabled in Full and Custom installs
-  AddSize 75250			; additional size in kB above installer
-
-  SetOutPath $INSTDIR\depinstallers	; temporary directory
-
-  MessageBox MB_ICONINFORMATION|MB_OKCANCEL 'We will now install a Java interpreter.' \
-    /SD IDOK IDCANCEL javadone
-
-  Var /GLOBAL jre_installer_name
-  !if ${BUILDARCH} = 32
-    StrCpy $jre_installer_name "jre-7u3-windows-i586.exe"
-    File "jre-7u3-windows-i586.exe"
-  !else
-    StrCpy $jre_installer_name "jre-7u3-windows-x64.exe"
-    File "jre-7u3-windows-x64.exe"
-  !endif
-  ExecWait '"$INSTDIR\depinstallers\$jre_installer_name"'
-  Delete "$INSTDIR\depinstallers\$jre_installer_name"
-
-  javadone:
 SectionEnd
 
 ;-----------------------------------------------------------------------------
@@ -303,7 +278,7 @@ SectionEnd
 ;
 ; Installs and registers mongodb to runs as a native Windows service.  Since
 ; this program is distributed as a zip file, it is unpackaged and included
-; directly in the popHealth installer. The service is also started so that we
+; directly in the installer. The service is also started so that we
 ; can use MongoDB later in the installer.
 ;-----------------------------------------------------------------------------
 Section "Install MongoDB" sec_mongodb
@@ -328,7 +303,7 @@ SectionEnd
 ; Redis
 ;
 ; Installs the redis server.  This program is distributed as a zip file, so
-; it is unpackage and included directly in the popHealth installer.  Once
+; it is unpackage and included directly in the installer.  Once
 ; installed, a scheduled task with a boot trigger is registered.  This will
 ; result in the redis server being started every time the machine is rebooted.
 ;-----------------------------------------------------------------------------
@@ -341,7 +316,7 @@ Section "Install Redis" sec_redis
   File /r redis-2.4.0\*.*
 
   ; Install a scheduled task to start redis on system boot
-  push "popHealth Redis Server"
+  push "${PRODUCT_NAME} Redis Server"
   push "Run the redis server at startup."
   push "PT15S"
   push "$redisdir\${BUILDARCH}bit\redis-server.exe"
@@ -354,86 +329,15 @@ Section "Install Redis" sec_redis
   SetRebootFlag true
 SectionEnd
 
+SectionGroupEnd
+; end "Third party software"
+
 ;-----------------------------------------------------------------------------
-; popHealth Web Application
+; Quality Measures
 ;
-; This section copies the popHealth Web Application onto the system.  This
-; also installs a scheduled task with a boot trigger that will start a web
-; server so that the application can be accessed when the system is booted.
+; This section copies the Quality Measures onto the system
 ;-----------------------------------------------------------------------------
-Section "popHealth Web Application" sec_popHealth
-
-  SectionIn RO
-  AddSize 37802        ; current size of cloned repo (in kB)
-
-  ; Set output path to the installation directory.
-  SetOutPath $INSTDIR
-  File /r pophealth
-
-  ; Install required native gems
-  SetOutPath $INSTDIR\depinstallers ; temporary directory
-  File /r binary_gems
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
-  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
-  RMDIR /r $INSTDIR\depinstallers\binary_gems
-
-  SetOutPath $INSTDIR\popHealth
-  ExecWait 'bundle.bat install'
-
-  ; Create admin user account
-  ExecWait 'bundle.bat exec rake admin:create_admin_account'
-
-  ; Install a scheduled task to start a web server on system boot
-  push "popHealth Web Server"
-  push "Run the web server that allows access to the popHealth application."
-  push "PT1M30S"
-  push "$rubydir\bin\ruby.exe"
-  push "script/rails server"
-  push "$INSTDIR\popHealth"
-  push "System"
-  Call CreateTask
-  pop $0
-  DetailPrint "Result of scheduling Web Server task: $0"
-  SetRebootFlag true
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; Resque Workers
-;
-; This section installs a batch file that will start the resque workers and
-; schedules a task with a boot trigger so that the workers are always started
-; when the system boots up.
-;-----------------------------------------------------------------------------
-Section "Install resque workers" sec_resque
-
-  SectionIn 1 3                  ; enabled in Full and Custom installs
-
-  ; Set output path to the popHealth web app's script directory
-  SetOutPath $INSTDIR\popHealth\script
-
-  ; Install the batch file that starts the workers.
-  File "run-resque.bat"
-
-  ; Install the scheduled service to run the resque workers on startup.
-  push "popHealth Resque Workers"
-  push "Run the resque workers for the popHealth application."
-  push "PT45S"
-  push "$INSTDIR\popHealth\script\run-resque.bat"
-  push ""
-  push "$INSTDIR\popHealth"
-  push "Local Service"
-  Call CreateTask
-  pop $0
-  DetailPrint "Result of scheduling resque workers task: $0"
-  SetRebootFlag true
-SectionEnd
-
-;-----------------------------------------------------------------------------
-; popHealth Quality Measures
-;
-; This section copies the popHealth Quality Measures onto the system
-;-----------------------------------------------------------------------------
-Section "popHealth Quality Measures" sec_qualitymeasures
+Section "Quality Measures" sec_qualitymeasures
 
   SectionIn RO
 
@@ -447,80 +351,122 @@ Section "popHealth Quality Measures" sec_qualitymeasures
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; popHealth Patient Importer
+; Web Application
 ;
-; This section copies the popHealth patient importer client onto the system
+; This section copies the Web Application onto the system.  This
+; also installs a scheduled task with a boot trigger that will start a web
+; server so that the application can be accessed when the system is booted.
 ;-----------------------------------------------------------------------------
-Section "popHealth Patient Importer" sec_patientimporter
+Section "${PRODUCT_NAME} Web Application" sec_webserver
 
   SectionIn RO
+  AddSize ${PRODUCT_SIZE}        ; current size of cloned repo (in kB)
 
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
-  File /r patient-importer
+  File /r ${PRODUCT_NAME}
 
-  ; Install a Start Menu item for the client.
-  SetOutPath $INSTDIR\patient-importer
-  CreateShortCut "$SMPROGRAMS\popHealth\importer.lnk" \
-    "$INSTDIR\patient-importer\start_importer.bat" "" "" "" \
-    SW_SHOWMINIMIZED ALT|CONTROL|SHIFT|F5 "popHealth Patient Importer Utility"
+  ; Install required native gems
+  SetOutPath $INSTDIR\depinstallers ; temporary directory
+  File /r binary_gems
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\bson_ext-1.5.1-x86-mingw32.gem'
+  ExecWait '"$rubydir\bin\gem.bat" install binary_gems\json-1.4.6-x86-mingw32.gem'
+  RMDIR /r $INSTDIR\depinstallers\binary_gems
+
+  SetOutPath "$INSTDIR\${PRODUCT_NAME}"
+  ExecWait 'bundle.bat install'
+
+  ; Install a scheduled task to start a web server on system boot
+  push "${PRODUCT_NAME} Web Server"
+  push "Run the web server that allows access to the ${PRODUCT_NAME} application."
+  push "PT1M30S"
+  push "$rubydir\bin\ruby.exe"
+  push "script/rails server -p 3000"
+  push "$INSTDIR\${PRODUCT_NAME}"
+  push "System"
+  Call CreateTask
+  pop $0
+  DetailPrint "Result of scheduling Web Server task: $0"
+  SetRebootFlag true
 SectionEnd
 
 ;-----------------------------------------------------------------------------
-; Patient Records
+; Resque Workers
 ;
-; This section adds 500 random patient records to the mongo database so that
-; there is data to play around with as soon as the installer finishes.
+; This section installs a batch file that will start the resque workers and
+; schedules a task with a boot trigger so that the workers are always started
+; when the system boots up.
+;
+; It should appear after the main web application's Section so that the script
+; directory is available
 ;-----------------------------------------------------------------------------
-Section "Install patient records" sec_samplepatients
+Section "Install resque workers" sec_resque
 
   SectionIn 1 3                  ; enabled in Full and Custom installs
 
-  ; Set output path to the measures directory
-  SetOutPath $INSTDIR\measures
+  ; Set output path to the product web app's script directory
+  SetOutPath $INSTDIR\${PRODUCT_NAME}\script
 
-  ; Define an environment variable for the database to use
-  !insertmacro SetInstallerEnvVar 'DB_NAME' 'pophealth-development'
+  ; Install the batch file that starts the workers.
+  File "run-resque.bat"
 
-  ; Generate records
-  ExecWait 'bundle.bat exec rake mongo:reload_bundle'
-  ExecWait 'bundle.bat exec rake patient:random[500]'
+  ; Install the scheduled service to run the resque workers on startup.
+  push "${PRODUCT_NAME} Resque Workers"
+  push "Run the resque workers for the ${PRODUCT_NAME} application."
+  push "PT45S"
+  push "$INSTDIR\${PRODUCT_NAME}\script\run-resque.bat"
+  push ""
+  push "$INSTDIR\${PRODUCT_NAME}"
+  push "Local Service"
+  Call CreateTask
+  pop $0
+  DetailPrint "Result of scheduling resque workers task: $0"
+  SetRebootFlag true
 SectionEnd
+
+
+;-----------------------------------------------------------------------------
+; Include the product-specific Section definitions
+;-----------------------------------------------------------------------------
+!include ${PRODUCT_NAME}.nsh
+
 
 ;--------------------------------
 ; Descriptions
 
   ;Language strings
-  LangString DESC_sec_uninstall ${LANG_ENGLISH} "Provides ability to uninstall popHealth"
-  LangString DESC_sec_startmenu ${LANG_ENGLISH} "Start Menu shortcuts"
-  LangString DESC_sec_ruby      ${LANG_ENGLISH} "Ruby scripting language"
-  LangString DESC_sec_java	${LANG_ENGLISH} "Java runtime environment"
-  LangString DESC_sec_bundler   ${LANG_ENGLISH} "Ruby Bundler gem"
-  LangString DESC_sec_mongodb   ${Lang_ENGLISH} "MongoDB database server"
-  LangString DESC_sec_redis     ${LANG_ENGLISH} "Redis server"
-  LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "popHealth quality measure definitions"
-  LangString DESC_sec_popHealth ${LANG_ENGLISH} "popHealth web application"
-  LangString DESC_sec_resque    ${LANG_ENGLISH} "popHealth resque workers"
-  LangString DESC_sec_patientimporter ${LANG_ENGLISH} "popHealth patient importer"
-  LangString DESC_sec_samplepatients ${LANG_ENGLISH} "Generates 500 sample patient records"
+  LangString DESC_sec_uninstall       ${LANG_ENGLISH} "Provides ability to uninstall ${PRODUCT_NAME}"
+  LangString DESC_sec_startmenu       ${LANG_ENGLISH} "Start Menu shortcuts"
+  LangString DESC_sec_ruby            ${LANG_ENGLISH} "Ruby scripting language"
+  LangString DESC_sec_bundler         ${LANG_ENGLISH} "Ruby Bundler gem"
+  LangString DESC_sec_mongodb         ${Lang_ENGLISH} "MongoDB database server"
+  LangString DESC_sec_redis           ${LANG_ENGLISH} "Redis server"
+  LangString DESC_sec_resque          ${LANG_ENGLISH} "${PRODUCT_NAME} resque workers"
+  LangString DESC_sec_qualitymeasures ${LANG_ENGLISH} "Quality measure definitions"
+  LangString DESC_sec_webserver       ${LANG_ENGLISH} "${PRODUCT_NAME} web application"
+  LangString DESC_sec_postinstall     ${LANG_ENGLISH} "Initialize database with patient data and quality measures"
 
-  LangString ProxyPage_Title    ${LANG_ENGLISH} "Proxy Server Settings"
-  LangString ProxyPage_SUBTITLE ${LANG_ENGLISH} "Specify the name of the proxy server used to access the Internet"
+  LangString ProxyPage_Title          ${LANG_ENGLISH} "Proxy Server Settings"
+  LangString ProxyPage_SUBTITLE       ${LANG_ENGLISH} "Specify the name of the proxy server used to access the Internet"
 
   ;Assign language strings to sections
   !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall} $(DESC_sec_uninstall)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu} $(DESC_sec_startmenu)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby} $(DESC_sec_ruby)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_java} $(DESC_sec_java)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler} $(DESC_sec_bundler)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb} $(DESC_sec_mongodb)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis} $(DESC_sec_redis)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_uninstall}       $(DESC_sec_uninstall)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_startmenu}       $(DESC_sec_startmenu)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_ruby}            $(DESC_sec_ruby)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_bundler}         $(DESC_sec_bundler)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_mongodb}         $(DESC_sec_mongodb)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_redis}           $(DESC_sec_redis)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque}          $(DESC_sec_resque)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_qualitymeasures} $(DESC_sec_qualitymeasures)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_popHealth} $(DESC_sec_popHealth)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_resque} $(DESC_sec_resque)
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_webserver}       $(DESC_sec_webserver)
+
+    ; each product defines its own section for the post-install steps
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_postinstall}     $(DESC_sec_postinstall)
+
+    ; additional sections for patient importer
+    !insertmacro MUI_DESCRIPTION_TEXT ${sec_java}            $(DESC_sec_java)
     !insertmacro MUI_DESCRIPTION_TEXT ${sec_patientimporter} $(DESC_sec_patientimporter)
-    !insertmacro MUI_DESCRIPTION_TEXT ${sec_samplepatients} $(DESC_sec_samplepatients)
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;=============================================================================
@@ -534,31 +480,31 @@ SectionEnd
 Section "Uninstall"
   
   ; Remove registry keys
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\popHealth"
-  DeleteRegKey HKLM SOFTWARE\popHealth
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
+  DeleteRegKey HKLM SOFTWARE\${PRODUCT_NAME}
 
   ; Uninstall the resque worker scheduled task
-  ExecWait 'schtasks.exe /end /tn "popHealth Resque Workers"'
-  push "popHealth Resque Workers"
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Resque Workers"'
+  push "${PRODUCT_NAME} Resque Workers"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Resque Workers task: $0"
 
-  ; Uninstall popHealth web application
-  ExecWait 'schtasks.exe /end /tn "popHealth Web Server"'
-  push "popHealth Web Server"
+  ; Uninstall web application
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Web Server"'
+  push "${PRODUCT_NAME} Web Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Web Server task: $0"
-  RMDIR /r $INSTDIR\popHealth
+  RMDIR /r $INSTDIR\${PRODUCT_NAME}
 
-  ; Uninstall popHealth quality measures
+  ; Uninstall quality measures
   RMDIR /r $INSTDIR\measures
 
   ; Uninstall redis
   ; Stop task and remove scheduled task.
-  ExecWait 'schtasks.exe /end /tn "popHealth Redis Server"'
-  push "popHealth Redis Server"
+  ExecWait 'schtasks.exe /end /tn "${PRODUCT_NAME} Redis Server"'
+  push "${PRODUCT_NAME} Redis Server"
   Call un.DeleteTask
   pop $0
   DetailPrint "Results of deleting Redis Server task: $0"
@@ -586,19 +532,20 @@ Section "Uninstall"
       /SD IDYES IDNO skiprubyuninst
     ReadRegStr $0 HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{BD5F3A9C-22D5-4C1D-AEA0-ED1BE83A1E67}_is1" \
         "UninstallString"
-    ExecWait '$0'
+    ExecWait '$0 /silent'
   skiprubyuninst:
 
   ; Remove files and uninstaller
   Delete $INSTDIR\uninstall.exe
-  Delete $INSTDIR\popHealth.URL
+  Delete $INSTDIR\${PRODUCT_NAME}.URL
 
   ; Remove shortcuts, if any
-  Delete "$SMPROGRAMS\popHealth\*.*"
+  Delete "$SMPROGRAMS\${PRODUCT_NAME}\*.*"
 
   ; Remove directories used
-  RMDir "$SMPROGRAMS\popHealth"
-  RMDIR "$INSTDIR\popHealth"
+  RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
+  RMDir "$INSTDIR\depinstallers"
+  RMDIR "$INSTDIR\${PRODUCT_NAME}"
   RMDir "$INSTDIR"
 
 SectionEnd
@@ -716,7 +663,7 @@ Function ProxySettingsLeave
     StrCmp $proxyPort '' +2
       StrCpy $0 '$0:$proxyPort'
 
-    ; This will permanently set the environment variable for future use of popHealth
+    ; This will permanently set the environment variable for future use
     !insertmacro AddEnvVarToReg 'http_proxy' $0
     !insertmacro AddEnvVarToReg 'https_proxy' $0
 
@@ -750,7 +697,7 @@ FunctionEnd
 ; needed variables
 Function .onInit
   StrCpy $systemdrive $WINDIR 2
-  StrCpy $INSTDIR "$systemdrive\proj\popHealth"
+  StrCpy $INSTDIR "$systemdrive\MITRE\${PRODUCT_NAME}"
 
   !insertmacro SetRubyDir
   StrCpy $mongodir "$systemdrive\mongodb-2.0.1"

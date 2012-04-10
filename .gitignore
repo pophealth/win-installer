@@ -3,6 +3,9 @@
 *.bak
 measures-*.tgz
 patient-importer-*.tgz
+Cypress-*.tgz
+Cypress-*-i386.exe
+Cypress-*-x86_64.exe
 popHealth-*.tgz
 popHealth-*-i386.exe
 popHealth-*-x86_64.exe
@@ -11,4 +14,5 @@ redis-2.4.0
 binary_gems
 measures
 patient-importer
+Cypress
 popHealth
